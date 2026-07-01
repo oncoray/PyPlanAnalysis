@@ -1,0 +1,28 @@
+# Ignore PDFs
+*.pdf
+
+# Ignore images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.svg
+*.webp
+*.ico
+
+# Ignore Excel files
+*.xls
+*.xlsx
+*.xlsm
+*.xltx
+*.csv
+
+#avoid test data until phantom is ready
+*.dcm
+
+# --- Exceptions ---
+
+# Keep this specific spreadsheet
+!NTCPModels_params.xlsx
