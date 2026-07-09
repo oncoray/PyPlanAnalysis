@@ -17,6 +17,10 @@ from scipy.interpolate import splprep, splev
 from collections import defaultdict
 
 from skimage.draw import polygon as sk_polygon
+import SimpleITK as sitk
+
+from dataclasses import dataclass, field
+from typing import Optional
 
 # We read RT Struct contours directly via pydicom for reliability.
 
@@ -51,17 +55,7 @@ a combination where every link checks out. If no fully-verified
 combination exists, it falls back to the best partial match it can build
 and explains exactly what couldn't be confirmed via `link_warnings`.
 """
-try:
-    import SimpleITK as sitk
-except ImportError:
-    raise ImportError(
-        "SimpleITK is required for CT-grid resampling. "
-        "Install with: pip install SimpleITK"
-    )
 
-
-from dataclasses import dataclass, field
-from typing import Optional
 
 
 def _collect_candidates(folder: Path):

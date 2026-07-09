@@ -25,13 +25,7 @@ from .plots    import (plot_cumulative_histogram, plot_dvh_comparison,
 
 from .NTCP import (NTCPConfig,NTCPModelBase)
 
-try:
-    import SimpleITK as sitk
-except ImportError:
-    raise ImportError(
-        "SimpleITK is required for CT-grid resampling. "
-        "Install with: pip install SimpleITK"
-    )
+import SimpleITK as sitk
 
 # ============================================================
 #  PatientPlan

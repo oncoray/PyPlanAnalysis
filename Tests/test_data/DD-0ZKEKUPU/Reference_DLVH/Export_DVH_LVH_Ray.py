@@ -3,9 +3,12 @@ import csv
 import os
 import numpy as np
 from os import chdir, path, mkdir
-from connect import *
-import System, os, sys, clr
 
+import System, os, sys, clr
+try:
+    from connect import *
+except:
+    from raystation import *
 
 def GetDVH(aDoseObject, aExaminationName, aRoiName, NumberOfFractions):
     n = 2000
@@ -42,7 +45,7 @@ patient_db = get_current("PatientDB")
 patient = get_current("Patient")
 case = get_current("Case")
 
-export_folder = r'\\sv-onc-fs1\Home$\PARRELLGI\Documents\MBRO\DVH_code_local\test\Test_case_update'
+export_folder = r'\\sv-onc-fs1\Home$\PARRELLGI\Documents\MBRO\DVH_code_local\PyPlanAnalysis\Tests\test_data\Phantom\Reference_DLVH'
 
 if os.path.isdir(export_folder):
     os.chdir(export_folder)
@@ -94,6 +97,43 @@ NumberOfVoxels      = beamset.FractionDose.InDoseGrid.NrVoxels
 VoxelSize   = beamset.FractionDose.InDoseGrid.VoxelSize
 Corner   = beamset.FractionDose.InDoseGrid.Corner
 
+case.CopyPlan(PlanName=plan.Name,
+                          NewPlanName="LET",
+                          KeepBeamSetNames=True)
+
+new_plan = case.TreatmentPlans["LET"]
+new_plan.BeamSets[0].UpdateDoseGrid(
+                                    Corner         = Corner ,
+                                    VoxelSize      = VoxelSize,
+                                    NumberOfVoxels = NumberOfVoxels,
+                                )
+new_plan.BeamSets[0].FractionDose.SetDoseValues(
+                                                Dose=LET 
+                                            )
+print("Done:", "LET")
+patient.Save()
+LET_for_LVH = new_plan.BeamSets[0].FractionDose
+with open('NOMINAL_LVH_.csv', 'w') as f:
+    writer = csv.writer(f, delimiter=';', lineterminator='\n')
+    writer.writerow(RoiList)
+    RoiVolumeList = ['Vol']
+    DVHMatrix = []
+    DMeanList = ['Dmean']
+    for iRoi, RoiName in enumerate(RoiList):
+        if iRoi > 0:
+            RoiVolume, D, V = GetLVH(LET_for_LVH, ExaminationName, RoiName)
+            Dmean = LET_for_LVH.GetDoseStatistic(RoiName=RoiName, DoseType="Average")  
+            if iRoi == 1:
+                DVHMatrix = [V, D]
+            else:
+                DVHMatrix.append(D)
+            RoiVolumeList.append(RoiVolume)
+            DMeanList.append(Dmean)
+    DVHMatrix = list(map(list, zip(*DVHMatrix)))
+    writer.writerow(RoiVolumeList)
+    writer.writerows(DVHMatrix)
+    writer.writerow(DMeanList)
+"""
 color_table = case.CaseSettings.LetColorMap.ColorTable
 color_key = list(color_table.keys())
 colors = list(color_table.values())
@@ -138,3 +178,4 @@ with open('NOMINAL_LVH_.csv', 'w') as f:
     writer.writerow(RoiVolumeList)
     writer.writerows(DVHMatrix)
     writer.writerow(DMeanList)
+    """

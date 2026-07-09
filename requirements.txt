@@ -1,0 +1,33 @@
+contourpy @ file:///D:/bld/bld/rattler-build_contourpy_1769155978/work
+cycler @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_cycler_1764466758/work
+et_xmlfile @ file:///home/conda/feedstock_root/build_artifacts/et_xmlfile_1733749653422/work
+fonttools @ file:///home/conda/feedstock_root/build_artifacts/fonttools_1778770239222/work
+imagecodecs @ file:///D:/bld/imagecodecs_1783095322116/work
+imageio @ file:///home/conda/feedstock_root/build_artifacts/imageio_1738273805233/work
+kiwisolver @ file:///D:/bld/bld/rattler-build_kiwisolver_1773067062/work
+lazy-loader @ file:///home/conda/feedstock_root/build_artifacts/lazy-loader_1772817235966/work
+matplotlib==3.11.0
+munkres==1.1.4
+networkx @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_networkx_1765215107/work
+numpy @ file:///D:/bld/bld/rattler-build_numpy_1783206236/work/dist/numpy-2.5.1-cp314-cp314-win_amd64.whl#sha256=09fcfd2e53aa8f325946b6ea4bbac5832e414d835b5c8b06a2181b50749439f2
+openpyxl @ file:///D:/bld/openpyxl_1769121986488/work
+packaging @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_packaging_1777103621/work
+pandas @ file:///D:/bld/bld/rattler-build_pandas_1778602665/work
+pillow @ file:///D:/bld/bld/rattler-build_pillow_1782912129/work
+pydicom @ file:///home/conda/feedstock_root/build_artifacts/pydicom_1773969744227/work
+pyparsing @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pyparsing_1769003998/work
+# Editable install with no version control (PyPlanAnalysis==1.0.0)
+-e c:\users\parrellgi\pyplananalysis
+PySide6==6.11.1
+python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_python-dateutil_1751104122/work
+scikit-image @ file:///D:/bld/bld/rattler-build_scikit-image_1766684415/work
+scipy @ file:///D:/bld/scipy-split_1781912170729/work/dist/scipy-1.18.0-cp314-cp314-win_amd64.whl#sha256=c790949c9e2863fd28f1859fbeabe46607613cb5b4083609476c3d4399404148
+setuptools==82.0.1
+shiboken6==6.11.1
+simpleitk @ file:///D:/bld/simpleitk_1778785245215/work/b
+six @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_six_1753199211/work
+tifffile @ file:///home/conda/feedstock_root/build_artifacts/tifffile_1780298467241/work
+tornado @ file:///D:/bld/tornado_1781006769577/work
+tzdata @ file:///home/conda/feedstock_root/build_artifacts/python-tzdata_1777068919240/work
+unicodedata2 @ file:///D:/bld/unicodedata2_1770908980057/work
+wheel==0.47.0

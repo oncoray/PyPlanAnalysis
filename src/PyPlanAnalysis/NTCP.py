@@ -14,6 +14,17 @@ import pandas as pd
 import numpy as np
 import scipy
 from dataclasses import dataclass, field
+from importlib import resources
+
+
+def default_ntcp_params_path():
+    """
+    Path to the NTCP model-parameter workbook bundled with the package
+    (PyPlanAnalysis/data/NTCPModels_params.xlsx). Used automatically by
+    NTCPModelBase when no explicit ``df_models_path`` is supplied, so
+    installed users get working NTCP calculations out of the box.
+    """
+    return resources.files("PyPlanAnalysis.data").joinpath("NTCPModels_params.xlsx")
 
 @dataclass
 class NTCPConfig:
@@ -58,6 +69,8 @@ class NTCPConfig:
 class NTCPModelBase():
     def __init__(self, model_name, df_models_path):
         self.model_name = model_name
+        if df_models_path is None:
+            df_models_path = default_ntcp_params_path()
         df_models = pd.read_excel(df_models_path)
         self.numberOfVariables = df_models["numberOfVariables"][df_models["model_name"]==self.model_name].values[0]
         self.parameterNames = []
