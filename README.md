@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.svg" alt="PyPlanAnalysis logo" width="500">
+</p>
+
 # PyPlanAnalysis
 
 Python module for computing dose-volume, LET-volume, and dose-LET-volume histograms from proton therapy DICOM plans. It allows also NTCP calculation for brain irradiations.
