@@ -8,7 +8,6 @@
 *.gif
 *.bmp
 *.tiff
-*.svg
 *.webp
 *.ico
 
@@ -21,6 +20,22 @@
 
 #avoid test data until phantom is ready
 *.dcm
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+__pycache__/
+
+# Logs
+*.log
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+ 
 
 # --- Exceptions ---
 
