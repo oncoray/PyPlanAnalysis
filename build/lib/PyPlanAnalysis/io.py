@@ -676,8 +676,6 @@ def load_dose_grid(path: Union[str, Path]) -> tuple:
     """
     ds    = pydicom.dcmread(str(path))
     scale = float(ds.DoseGridScaling)
-    if not ds.DoseUnits == "GY":
-        warnings.warn(f"Dose Units are not correct for: '{path}'.")
     array = ds.pixel_array.astype(np.float64) * scale
     return array, ds
 
