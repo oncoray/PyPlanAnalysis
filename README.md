@@ -17,12 +17,19 @@ Python module for computing dose-volume, LET-volume, and dose-LET-volume histogr
 ```bash
 git clone https://github.com/oncoray/PyPlanAnalysis.git
 cd PyPlanAnalysis
-pip install -e .
 ```
-
-Or install dependencies manually (COMING SOON):
+### For Devs: Create PyPlan_env and install in editable (-e)
 ```bash
-pip install -r requirements.txt 
+conda env create -f environment.yml
+conda activate PyPlan_env
+pip install -e . --no-build-isolation --no-deps
+```
+### For Users: Create a environment with requirements, then install 
+
+```bash
+conda create -n YourEnv -c conda-forge --file requirements_conda.txt
+conda activate YourEnv
+pip install . --no-deps  # or pip install git+https://github.com/oncoray/PlanAnalysis.git --no-deps
 ```
 
 ---

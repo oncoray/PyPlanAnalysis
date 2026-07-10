@@ -9,7 +9,7 @@ running.
 
 
 from PyPlanAnalysis import PatientPlan, RBEConfig, MetricConfig, RadiobiologyConfig, NTCPConfig
-from Utils import Paths
+from Tests import Paths
 import pandas as pd
 
 # ------------------------------------------------------------------
