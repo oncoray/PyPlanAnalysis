@@ -28,6 +28,23 @@ def default_ntcp_params_path():
 
 @dataclass
 class NTCPConfig:
+    """
+    Selects which NTCP toxicity models to compute in
+    ``AnalysisResults.CalcNTCP()``.
+
+    Parameters
+    ----------
+    models : list of str
+        Subset of the model names below (must match the ``model_name``
+        column of the bundled ``NTCPModels_params.xlsx`` workbook).
+        Default: all models listed below.
+
+    Notes
+    -----
+    Each model name maps to one ``NTCP__*`` implementation function in
+    this module (brain/head-and-neck late- and acute-toxicity endpoints
+    from Dutz, De Marzi, Burman, Gondi, Kong, Lee, Bender and Batth).
+    """
     models    : list = field(default_factory=lambda:['Alopecia_G1_12m__1',
         'Alopecia_G1_12m__2',
         'Alopecia_G1_24m__1',
@@ -67,6 +84,34 @@ class NTCPConfig:
 
 # ____________________________________________________________________________
 class NTCPModelBase():
+    """
+    Loads one NTCP model's metadata from the parameter workbook and
+    dispatches to its implementation function.
+
+    Parameters
+    ----------
+    model_name : str
+        Must match a value in the ``model_name`` column of the parameter
+        workbook (see ``NTCPConfig.models`` for the full list).
+    df_models_path : str or Path, optional
+        Path to the NTCP parameter workbook (``.xlsx``). Default: None,
+        which resolves to the workbook bundled with the package via
+        ``default_ntcp_params_path()``.
+
+    Attributes
+    ----------
+    OAR_name : str
+        Organ-at-risk name this model applies to.
+    numberOfVariables : int
+        Number of covariates the model's implementation function expects.
+    parameterNames : list of str
+        DVH/LVH metric column-name suffixes to pull from the metrics
+        DataFrame for each covariate, in order.
+    side : {"ipsi", "contra", None}
+        Laterality selection rule, inferred from ``model_name``.
+    impl_fn : callable
+        The ``NTCP__*`` function implementing this model's formula.
+    """
     def __init__(self, model_name, df_models_path):
         self.model_name = model_name
         if df_models_path is None:
@@ -139,6 +184,28 @@ class NTCPModelBase():
             self.impl_fn = NTCP__Tinnitus_G2_late
       
     def define_side(self,vRBE_model, dfi_dvh,parameterName):
+        """
+        Resolve which structure (ROI) to use when a model applies to a
+        laterality-specific OAR (e.g. "Cochlea ipsi" vs "Cochlea contra")
+        and the metrics DataFrame has more than one ROI matching
+        ``self.OAR_name``.
+
+        Parameters
+        ----------
+        vRBE_model : str
+            Dose-type/RBE-model label prefix used in the metrics column
+            names (e.g. "Phys", "RBE1.1", "mcnamara").
+        dfi_dvh : pandas.DataFrame
+            The patient's per-structure metrics table
+            (``AnalysisResults.metrics_df``).
+        parameterName : str
+            Metric column-name suffix to compare across candidate ROIs.
+
+        Returns
+        -------
+        str or None
+            The chosen ``ROI_Name`` value, or None if no ROI matches.
+        """
         rois = {}
         for s in dfi_dvh["ROI_Name"]:
             if self.OAR_name.lower() in s.lower():
@@ -160,6 +227,25 @@ class NTCPModelBase():
             return next(iter(rois))
         
     def compute_x(self,vRBE_model,dfi_dvh):
+        """
+        Build the covariate vector ``x`` this model's ``impl_fn`` expects,
+        by pulling ``self.parameterNames`` columns for the matched ROI(s)
+        out of the metrics DataFrame.
+
+        Parameters
+        ----------
+        vRBE_model : str
+            Dose-type/RBE-model label prefix (see ``define_side``).
+        dfi_dvh : pandas.DataFrame
+            Patient metrics table (``AnalysisResults.metrics_df``).
+
+        Returns
+        -------
+        list of float
+            One value per covariate, in ``self.parameterNames`` order.
+            Entries are ``np.nan`` where the required ROI/metric could
+            not be found.
+        """
         x = []
         for i in range(0,self.numberOfVariables):
             try:
@@ -179,72 +265,183 @@ class NTCPModelBase():
         return x
     
     def compute_NTCP(self, vRBE_model,dfi_dvh):
+        """
+        Compute this model's NTCP for one patient and one dose type.
+
+        Parameters
+        ----------
+        vRBE_model : str
+            Dose-type/RBE-model label prefix (see ``define_side``).
+        dfi_dvh : pandas.DataFrame
+            Patient metrics table (``AnalysisResults.metrics_df``).
+
+        Returns
+        -------
+        float or None
+            NTCP in percent (0-100), rounded to 4 decimals. Returns
+            ``None`` if any required covariate is missing/NaN.
+        """
         x = self.compute_x(vRBE_model,dfi_dvh)
         if not np.isnan(x).any():
             return np.round(self.impl_fn(x)*100,4)
             
 def npNan(x):
+    """Fallback implementation for an unrecognised model name; always returns NaN."""
     return np.nan
 
 # ---------------------------------------------------------------------------------------------
 
-# Alopecia grade ≥1_12 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
+
 def NTCP__Alopecia_G1_12m__1(x, beta_0=-1.88, beta_1=0.15): #1.80 o 1.88??
-#     # Skin V45Gy(RBE) in cm^(-3)
+    """
+    Alopecia grade >=1, 12 months after PBT
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates: x[0] = Skin V45Gy(RBE) in cm^-3.
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1].
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Alopecia grade ≥1_12 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
 def NTCP__Alopecia_G1_12m__2(x, beta_0=-6.38, beta_1=0.15):
-#     # D2 == Skin D2% in Gy(RBE)^-(1)
+    """
+    Alopecia grade ≥1_12 months after PBT
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1] 
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Alopecia grade ≥1_24 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
+
 def NTCP__Alopecia_G1_24m__1(x, beta_0=-1.70, beta_1=0.048):
-#     # Skin V30Gy(RBE) in cm^(-3)
+    """
+    Alopecia grade ≥1_24 months after PBT
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1] .
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Alopecia grade ≥1_24 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
+
 def NTCP__Alopecia_G1_24m__2(x, beta_0=-3.18, beta_1=0.068):
-#     # D2 == Skin D2% in Gy(RBE)^-(1)
+    """
+    Alopecia grade ≥1_24 months after PBT
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1].
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Alopecia grade >=1 (CTCAE, Common Terminology Criteria for Adverse Events)
-# __________________________________________________________________________
-#    Acute
-#    Dutz et al. 2019            
+      
 def NTCP__Alopecia_G1_acute(x, beta_0=-0.94, beta_1=0.10):
-     # D2 == Skin D2%
+    """
+    Alopecia grade >=1 (CTCAE, Common Terminology Criteria for Adverse Events)
+    Acute
+    Dutz et al. 2019
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1].
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Alopecia grade >=2 (CTCAE, Common Terminology Criteria for Adverse Events)
-# __________________________________________________________________________
-#    Acute
-#    Dutz et al. 2019
+
 def NTCP__Alopecia_G2_acute(x, beta_0=-1.33, beta_1=0.081):
-#     # D5 == Skin D5%
-     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
+    """
+    Alopecia grade >=2 (CTCAE, Common Terminology Criteria for Adverse Events)
+    Acute
+    Dutz et al. 2019
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1]  .
+    """
+    return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
@@ -253,19 +450,55 @@ def NTCP__Alopecia_G2_acute(x, beta_0=-1.33, beta_1=0.081):
 #    5 years post-RT
 #    Burman et al. 1991
 def NTCP__Blindness_5y(x, TD50=65.0, m=0.14):
-    # chiasm and optic nerves gEUD, a = 4.0
+    """
+    Blindness
+    Chiasm and optic nerves gEUD, a = 4.0
+    5 years post-RT
+    Burman et al. 1991
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    TD50 : float
+        Fitted model coefficient (see reference above for origin/units).
+    m : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1].
+    """ 
     t = (x[0] - TD50)/(m*TD50)
-    # equals 1/sqrt(2pi) integral_-inf^t exp(-x^2/2)dx
     return 0.5*(1+scipy.special.erf(t/np.sqrt(2)))
 
 
 
-# Brain necrosis
-# __________________________________________________________________________
-#    5 years post-RT
-#    Bender et al. 2012
+
 def NTCP__BrainNecrosis_5y(x, D50=109.0, gamma=2.8):
-    # Brain-CTV and brain stem Dmax (EQD2)
+    """
+    Brain necrosis
+    Brain-CTV and Brainstem Dmax (EQD2)
+    5 years post-RT
+    Bender et al. 2012
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    D50 : float
+        Fitted model coefficient (see reference above for origin/units).
+    gamma : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1].
+    """
     if x[0] == 0:
         return 0
     else:
@@ -273,36 +506,84 @@ def NTCP__BrainNecrosis_5y(x, D50=109.0, gamma=2.8):
 
 
     
-# Cataract requiring intervention
-# __________________________________________________________________________
-#    5 years post-RT
-#    Burman et al. 1991
+
 def NTCP__CataractRequiringIntervention_5y(x, TD50=18.0, m=0.27):
-    # Lenses gEUD
+    """
+    Cataract requiring intervention
+    Lenses gEUD
+    5 years post-RT
+    Burman et al. 1991
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    TD50 : float
+        Fitted model coefficient (see reference above for origin/units).
+    m : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1]  .
+    """
     t = (x[0] - TD50)/(m*TD50)
-    # equals 1/sqrt(2pi) integral_-inf^t exp(-x^2/2)dx
     return 0.5*(1+scipy.special.erf(t/np.sqrt(2)))
 
 
 
-# Delayed recall (on Wechsler Memory scale III Word Lists)
-# __________________________________________________________________________
-#    1.5 years post-RT
-#    Gondi et al. 2012
 def NTCP__DelayedRecall_1_5y(x, EQD_2_50=14.88, m=0.540):
-#     # Bilateral hippocampi D40% (EQD2)
+    """
+    Delayed recall (on Wechsler Memory scale III Word Lists)
+    Bilateral hippocampi D40% (EQD2)
+    1.5 years post-RT
+    Gondi et al. 2012
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    EQD_2_50 : float
+        Fitted model coefficient (see reference above for origin/units).
+    m : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1].
+    """
     t = (x[0] - EQD_2_50)/(m*EQD_2_50)
-#     # equals 1/sqrt(2pi) integral_-inf^t exp(-x^2/2)dx
     return 0.5*(1+scipy.special.erf(t/np.sqrt(2)))
 
 
 
-# Endocrine dysfunction (CTCAE, Common Terminology Criteria for Adverse Events)
-# __________________________________________________________________________
-#    At least 0.5 – 2 years post-RT
-#    De Marzi et al. 2015
+
 def NTCP__EndocrineDysfunction_late(x, TD50=60.5, gamma50=5.2):
-#     # Pituitary gEUD, a = 6.4
+    """
+    Endocrine dysfunction (CTCAE, Common Terminology Criteria for Adverse Events)
+    Pituitary gEUD, a = 6.4
+    At least 0.5 – 2 years post-RT
+    De Marzi et al. 2015
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    TD50 : float
+        Fitted model coefficient (see reference above for origin/units).
+    gamma50 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1]  .
+    """  
     if x[0] == 0:
         return 0
     else:
@@ -310,89 +591,228 @@ def NTCP__EndocrineDysfunction_late(x, TD50=60.5, gamma50=5.2):
 
     
     
-# Erythema grade ≥ 1
-# __________________________________________________________________________
-#    Acute
-#    Dutz et al. 2019
+
 def NTCP__Erythema_G1_acute(x, beta_0=1.00, beta_1=0.085):
-#     # Skin V35Gy(RBE), absolute volume
+    """
+    Erythema grade ≥ 1
+    Skin V35Gy(RBE), absolute volume
+    Acute
+    Dutz et al. 2019
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1]  .
+    """
+#     
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Erythema grade ≥ 2 (CTCAE, Common Terminology Criteria for Adverse Events)
-# __________________________________________________________________________
-#    Acute
-#    Dutz et al. 2019
+
 def NTCP__Erythema_G2_acute(x, beta_0=-1.54, beta_1=0.056):
-#     # Skin V35Gy(RBE), absolute volume
+    """
+    Erythema grade ≥ 2 (CTCAE, Common Terminology Criteria for Adverse Events)
+    Skin V35Gy(RBE), absolute volume
+    Acute
+    Dutz et al. 2019
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1]  .
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Fatigue grade ≥ 1_24 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
 def NTCP__Fatigue_G1_24m(x, beta_0=-1.52, beta_1=0.021, beta_2=-1.16):
-    # D2 == BrainStem D2% in Gy(RBE)^-(1), x[0]
-    # CTx == 0: patient recieved no chemotherapy.x[1]
-    # CTx == 1: patient recieved chemotherapy
+    """
+    Fatigue grade ≥ 1_24 months after PBT
+    x[0] BrainStem D2% in Gy(RBE)^-(1)
+    x[1] CTx == 0: patient recieved no chemotherapy
+         CTx == 1: patient recieved chemotherapy
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_2 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1]  .
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]-beta_2*x[1]))  
 
 
 
-# Fatigue grade >=1 (CTCAE, Common Terminology Criteria for Adverse Events)
-# __________________________________________________________________________
-#    Acute
-#    Dutz et al. 2019
+
 def NTCP__Fatigue_G1_acute(x, beta_0=-0.90, beta_1=0.027, beta_2=1.28):
-    # D2 == Brain-CTV(Gy) D2%, x[0]
-    # female: gender = 1, x[1]
-    # male:   gender = 0
-    #return 1/(1+np.exp(-beta_0-beta_1*D2-beta_2*gender))
+    """
+    Fatigue grade >=1 (CTCAE, Common Terminology Criteria for Adverse Events)
+    x[0] Brain-CTV(Gy), D2%
+    x[1] female: gender = 1
+         male:   gender = 0
+    Acute
+    Dutz et al. 2019
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_2 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1]  .
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]-beta_2*x[1]))
 
 
 
-# Hearing impairment grade ≥1_12 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
+
 def NTCP__HearingImpairment_G1_12m__1(x, beta_0=-3.03, beta_1=0.038):
-    # Dmean == Cochlea ipsi Dmean in Gy(RBE)^-(1)
+    """
+    Hearing impairment grade ≥1_12 months after PBT
+    Dmean == Cochlea ipsi Dmean in Gy(RBE)^-(1)
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1]  .
+    """ 
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Hearing impairment grade ≥1_12 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
+
 def NTCP__HearingImpairment_G1_12m__2(x, beta_0=-7.02, beta_1=0.032, beta_2=0.072):
-    # Dmean == Cochlea ipsi Dmean in Gy(RBE)^-(1), x[0]
-    # Age == Age in years,x[1]
-    #return 1/(1+np.exp(-beta_0-beta_1*Dmean-beta_2*Age))
+    """
+    Hearing impairment grade ≥1_12 months after PBT
+    x[0] Dmean = Cochlea ipsi Dmean in Gy(RBE)^-(1)
+    x[1] Age = Age in years
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_2 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1].
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]-beta_2*x[1]))
 
 
 
-# Hearing impairment grade ≥1_24 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
+
 def NTCP__HearingImpairment_G1_24m(x, beta_0=-3.48, beta_1=0.050):
-    # Dmean == Cochlea ipsi Dmean in Gy(RBE)^-(1)
+    """
+    Hearing impairment grade ≥1_24 months after PBT
+    Cochlea ipsi Dmean in Gy(RBE)^-(1)
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1].
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Hearing loss (CTCAE, Common Terminology Criteria for Adverse Events)
-# __________________________________________________________________________
-#    At least 0.5 – 2 years post-RT
-#    De Marzi et al. 2015
 def NTCP__HearingLoss_late(x, TD50=56.0, gamma50=2.9):
-    # Cochlea gEUD, a = 1.2
+    """
+    Hearing loss (CTCAE, Common Terminology Criteria for Adverse Events)
+    Cochlea gEUD, a = 1.2
+    At least 0.5 – 2 years post-RT
+    De Marzi et al. 2015
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    TD50 : float
+        Fitted model coefficient (see reference above for origin/units).
+    gamma50 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1].
+    """
     if x[0] == 0:
         return 0
     else:
@@ -405,37 +825,108 @@ def NTCP__HearingLoss_late(x, TD50=56.0, gamma50=2.9):
 #    Late
 #    Dutz et al. 2021
 def NTCP__MemoryImpairment_G1_12m(x, beta_0=-2.32, beta_1=0.023):
-#     # D2 == Hippocampi D2% in Gy(RBE)^-(1)
+    """
+    Memory impairment grade ≥1_12 months after PBT
+    Hippocampi D2% in Gy(RBE)^-(1)
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1] .
+    """
     return 1/(1+np.exp(-beta_0-beta_1*(x[0]/100)))
 
 
 
-# Memory impairment grade ≥1_24 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
+
 def NTCP__MemoryImpairment_G1_24m(x, beta_0=-1.77, beta_1=6.50):
-    # Brain-CTV V35Gy(RBE) as fraction of the total volume
+    """
+    Memory impairment grade ≥1_24 months after PBT
+    Brain-CTV V35Gy(RBE) as fraction of the total volume
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1] .
+    """
     return 1/(1+np.exp(-beta_0-beta_1*(x[0]/100)))
 
 
 
-# Memory impairment grade ≥2_12 months after PBT
-# __________________________________________________________________________
-#    Late
-#    Dutz et al. 2021
+
 def NTCP__MemoryImpairment_G2_12m(x, beta_0=-3.42, beta_1=5.02):
-    # Brain-CTV V25Gy(RBE) as fraction of the total volume
+    """
+    Memory impairment grade ≥2_12 months after PBT
+    Brain-CTV V25Gy(RBE) as fraction of the total volume
+    Late
+    Dutz et al. 2021
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1] .
+    """
     return 1/(1+np.exp(-beta_0-beta_1*(x[0]/100)))
 
 
 
-# Ocular toxicity grade ≥ 2 (RTOG, Radiation Therapy Oncology Group)
-# __________________________________________________________________________
-#    Acute
-#    Batth et al. 2013
+
 def NTCP__OcularToxicity_G2_acute(x, beta_0=-5.174, beta_1=0.205):
-    # Dmax == Ipsilateral lacrimal gland Dmax
+    """
+    Ocular toxicity grade ≥ 2 (RTOG, Radiation Therapy Oncology Group)
+    Ipsilateral lacrimal gland Dmax
+    Acute
+    Batth et al. 2013
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1] .
+    """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
@@ -445,17 +936,54 @@ def NTCP__OcularToxicity_G2_acute(x, beta_0=-5.174, beta_1=0.205):
 #    5 years post-RT
 #    Kong et al. 2016
 def NTCP__TemporalLobeInjury_5y(x, beta_0=-18.61, beta_1=0.227):
-#     # Dmax == Temporal lobe Dmax
+    """
+    Temporal lobe injury
+    Dmax = Temporal lobe Dmax
+    5 years post-RT
+    Kong et al. 2016
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    beta_0 : float
+        Fitted model coefficient (see reference above for origin/units).
+    beta_1 : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1] .
+    """ 
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
 
 
-# Tinnitus grade ≥ 2 (LENT-SOMA, late effects of normal tissues - subjective, objective, management)
-# __________________________________________________________________________
-#    1–2 years post-RT
-#    Lee et al. 2015
+
 def NTCP__Tinnitus_G2_late(x, TD50=46.52, m=0.35):
-    #  Cochlea Dmean
+    """
+    Tinnitus grade ≥ 2 (LENT-SOMA, late effects of normal tissues - subjective, objective, management)
+    Cochlea Dmean
+    1–2 years post-RT
+    Lee et al. 2015
+
+    Parameters
+    ----------
+    x : list
+        Model covariates, in the order defined by the NTCP parameter
+        workbook for this model (see NTCPModelBase.parameterNames).
+    TD50 : float
+        Fitted model coefficient (see reference above for origin/units).
+    m : float
+        Fitted model coefficient (see reference above for origin/units).
+
+    Returns
+    -------
+    float
+        NTCP probability in [0, 1] .
+    """
     t = (x[0] - TD50)/(m*TD50)
-    # equals 1/sqrt(2pi) integral_-inf^t exp(-x^2/2)dx
+
     return 0.5*(1+scipy.special.erf(t/np.sqrt(2)))

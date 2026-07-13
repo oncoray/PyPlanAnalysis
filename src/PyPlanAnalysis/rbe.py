@@ -71,8 +71,24 @@ def _safe_dose(dose: np.ndarray) -> np.ndarray:
 def rbe_linear(dose_phys: np.ndarray,
                  let_d: np.ndarray,
                  n_fractions: int,
-                 alpha_beta: float):
-    rbe = 1 + 0.1 * let_d   #Fraction LETd in case of replanned?
+                 alpha_beta: float,
+                 coeff: float = 0.1):
+    """
+    Linear variable-RBE model: RBE = 1 + coeff * LETd.
+
+    Parameters
+    ----------
+    dose_phys   : physical dose array [Gy]
+    let_d       : LETd array [keV/µm], same shape as dose_phys
+    n_fractions : number of fractions (unused by this model, kept for a
+                  consistent signature with the other RBE models)
+    alpha_beta  : α/β ratio [Gy] (unused by this model)
+
+    Returns
+    -------
+    np.ndarray  [Gy(RBE)]
+    """
+    rbe = 1 + coeff * let_d   
     return dose_phys * rbe
 
 def rbe_mcnamara(dose_phys: np.ndarray,

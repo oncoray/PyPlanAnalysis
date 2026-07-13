@@ -812,11 +812,43 @@ def get_structure_mask_on_grid(struct_name: str,
     return mask
  
 def contour_area_signed(xy):
-    """Shoelace formula — positive = CCW, negative = CW"""
+    """
+    Signed polygon area via the shoelace formula.
+
+    Parameters
+    ----------
+    xy : np.ndarray, shape (N, 2)
+        Polygon vertices [x, y] in mm.
+
+    Returns
+    -------
+    float
+        Signed area; positive for counter-clockwise vertex order,
+        negative for clockwise. Used to detect contour holes.
+    """
     x, y = xy[:, 0], xy[:, 1]
     return 0.5 * (np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
 
 def smooth_contour(poly_xy, n_pts=300):
+    """
+    Resample a contour polygon onto ``n_pts`` evenly-spaced points using
+    a periodic B-spline fit. Not used by default in the fractional-mask
+    pipeline (see inline note in ``get_fractional_mask_on_grid``); kept
+    available for callers who want smoothed contours.
+
+    Parameters
+    ----------
+    poly_xy : np.ndarray, shape (N, 2)
+        Polygon vertices [x, y] in mm.
+    n_pts : int, default 300
+        Number of points in the resampled output.
+
+    Returns
+    -------
+    np.ndarray, shape (n_pts, 2)
+        Smoothed polygon vertices. Falls back to the original polygon,
+        unchanged, if the spline fit fails.
+    """
     try:
         x, y = poly_xy[:, 0], poly_xy[:, 1]
         tck, _ = splprep([x, y], s=0, per=True)
@@ -827,6 +859,29 @@ def smooth_contour(poly_xy, n_pts=300):
         return poly_xy
 
 def rasterize_supersampled(smooth_xy, x0, y0, dx, dy, ny, nx, N):
+    """
+    Rasterise one contour polygon onto a grid at N times finer resolution,
+    then average back down — giving each output voxel a fractional
+    [0, 1] membership value instead of a hard binary in/out.
+
+    Parameters
+    ----------
+    smooth_xy : np.ndarray, shape (N, 2)
+        Polygon vertices [x, y] in mm.
+    x0, y0 : float
+        Grid origin (mm) in x and y.
+    dx, dy : float
+        Grid voxel spacing (mm) in x and y.
+    ny, nx : int
+        Output grid shape.
+    N : int
+        Supersampling factor per side (N² sub-samples per voxel).
+
+    Returns
+    -------
+    np.ndarray, shape (ny, nx), float32
+        Fractional coverage of each voxel by the polygon, in [0, 1].
+    """
     xi = (smooth_xy[:, 0] - x0) / dx * N
     yi = (smooth_xy[:, 1] - y0) / dy * N
 
@@ -837,7 +892,23 @@ def rasterize_supersampled(smooth_xy, x0, y0, dx, dy, ny, nx, N):
 
 
 def compute_roi_volume_comparison(frac_mask, dx, dy, dz):
-    
+    """
+    Print and return the total volume of a fractional mask, plus a
+    per-slice breakdown — useful for sanity-checking
+    ``get_fractional_mask_on_grid`` output against a TPS-reported volume.
+
+    Parameters
+    ----------
+    frac_mask : np.ndarray, shape (nz, ny, nx)
+        Fractional voxel membership mask, values in [0, 1].
+    dx, dy, dz : float
+        Voxel spacing (mm) in x, y, z.
+
+    Returns
+    -------
+    float
+        Total volume in cc (sum of fractional weights x voxel volume).
+    """
     # Your fractional volume
     vol_frac = frac_mask.sum() * dx * dy * dz / 1000.0
 
@@ -854,6 +925,24 @@ def compute_roi_volume_comparison(frac_mask, dx, dy, dz):
     return vol_frac
 
 def prismatoid_volume(frac_mask, dx, dy, dz):
+    """
+    Volume of a fractional mask via the prismatoid (Simpson's-rule-like)
+    formula between consecutive slices, instead of a flat sum-of-slices
+    approximation. Slightly more accurate for structures with rapidly
+    changing cross-sectional area between slices.
+
+    Parameters
+    ----------
+    frac_mask : np.ndarray, shape (nz, ny, nx)
+        Fractional voxel membership mask, values in [0, 1].
+    dx, dy, dz : float
+        Voxel spacing (mm) in x, y, z.
+
+    Returns
+    -------
+    float
+        Total volume in cc.
+    """
     areas = frac_mask.sum(axis=(1,2)) * dx * dy
     nz = len(areas)
     if nz < 2:
