@@ -16,6 +16,8 @@ Python module for computing dose-volume, LET-volume, and dose-LET-volume histogr
 
 ---
 
+## Documentation
+Full documentation [here.](https://<your-username>.github.io/PyPlanAnalysis/)
 
 ## Installation
 
