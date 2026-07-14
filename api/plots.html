@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="NTCP Models Reference" href="../ntcp_models.html"><link rel="prev" title="PyPlanAnalysis.NTCP" href="ntcp.html">
 
-    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+    <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
         <title>PyPlanAnalysis.plots - PyPlanAnalysis documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
@@ -256,11 +256,11 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>curves</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></span>)</p></li>
-<li><p><strong>title</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
-<li><p><strong>xlabel</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
-<li><p><strong>ylabel</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
-<li><p><strong>dpi</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>)</p></li>
+<li><p><strong>curves</strong> (<em>dict  {structure_name:</em><em> (</em><em>edges</em><em>, </em><em>cum_volume_fraction</em><em>)</em><em>}</em>)</p></li>
+<li><p><strong>title</strong> (<em>plot title string</em>)</p></li>
+<li><p><strong>xlabel</strong> (<em>x-axis label</em>)</p></li>
+<li><p><strong>ylabel</strong> (<em>y-axis label</em>)</p></li>
+<li><p><strong>dpi</strong> (<em>figure DPI</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -279,12 +279,12 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>curves_per_model</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></span>) – <dl class="simple">
+<li><p><strong>curves_per_model</strong> (<em>dict  {model_label:</em><em> (</em><em>edges</em><em>, </em><em>cum</em><em>)</em><em>}</em>) – <dl class="simple">
 <dt>e.g. {“Physical”: (…), “RBE1.1”: (…),</dt><dd><p>”McNamara”: (…)}</p>
 </dd>
 </dl>
 </p></li>
-<li><p><strong>structure_name</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
+<li><p><strong>structure_name</strong> (<em>used in the plot title</em>)</p></li>
 <li><p><strong>dpi</strong> (<em>int</em>)</p></li>
 </ul>
 </dd>
@@ -304,11 +304,11 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>H</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>dose_edges</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>let_edges</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>structure_name</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
-<li><p><strong>dpi</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>)</p></li>
+<li><p><strong>H</strong> (<em>2-D array</em><em> (</em><em>dose_bins × let_bins</em><em>)</em><em>, </em><em>volume fractions</em>)</p></li>
+<li><p><strong>dose_edges</strong> (<em>dose bin edges</em><em> [</em><em>Gy</em><em>(</em><em>RBE</em><em>)</em><em>]</em>)</p></li>
+<li><p><strong>let_edges</strong> (<em>LET bin edges</em><em> [</em><em>keV/µm</em><em>]</em>)</p></li>
+<li><p><strong>structure_name</strong> (<em>used in title</em>)</p></li>
+<li><p><strong>dpi</strong> (<em>figure DPI</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -334,8 +334,8 @@ Z axis = volume [%], X = dose, Y = LET.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>figures</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>)</p></li>
-<li><p><strong>path</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code> | <code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code></span>)</p></li>
+<li><p><strong>figures</strong> (<em>list</em><em> of </em><em>(</em><em>title_str</em><em>, </em><em>Figure</em><em>) or </em><em>just</em><em> [</em><em>Figure</em><em>, </em><em>...</em><em>]</em>)</p></li>
+<li><p><strong>path</strong> (<em>output PDF path</em>)</p></li>
 <li><p><strong>dpi</strong> (<em>int</em>)</p></li>
 </ul>
 </dd>

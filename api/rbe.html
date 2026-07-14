@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="PyPlanAnalysis.NTCP" href="ntcp.html"><link rel="prev" title="PyPlanAnalysis.metrics" href="metrics.html">
 
-    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+    <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
         <title>PyPlanAnalysis.rbe - PyPlanAnalysis documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
@@ -264,9 +264,9 @@ Carabe     : Carabe et al., Br J Radiol 85(1011):304-14, 2012</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>models</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>) – Any subset of {“mcnamara”, “wedenberg”, “carabe”}.
+<li><p><strong>models</strong> (<em>list</em><em> of </em><em>str</em>) – Any subset of {“mcnamara”, “wedenberg”, “carabe”}.
 Default: all three.</p></li>
-<li><p><strong>fixed_rbe</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>) – Constant RBE value used for the RBE×fixed calculation.
+<li><p><strong>fixed_rbe</strong> (<em>float</em>) – Constant RBE value used for the RBE×fixed calculation.
 Default: 1.1</p></li>
 </ul>
 </dd>
@@ -307,10 +307,10 @@ Default: 1.1</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dose_phys</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>let_d</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>n_fractions</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – consistent signature with the other RBE models)</p></li>
-<li><p><strong>alpha_beta</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>)</p></li>
+<li><p><strong>dose_phys</strong> (<em>physical dose array</em><em> [</em><em>Gy</em><em>]</em>)</p></li>
+<li><p><strong>let_d</strong> (<em>LETd array</em><em> [</em><em>keV/µm</em><em>]</em><em>, </em><em>same shape as dose_phys</em>)</p></li>
+<li><p><strong>n_fractions</strong> (<em>number</em><em> of </em><em>fractions</em><em> (</em><em>unused by this model</em><em>, </em><em>kept for a</em>) – consistent signature with the other RBE models)</p></li>
+<li><p><strong>alpha_beta</strong> (<em>α/β ratio</em><em> [</em><em>Gy</em><em>] </em><em>(</em><em>unused by this model</em><em>)</em>)</p></li>
 <li><p><strong>coeff</strong> (<em>float</em>)</p></li>
 </ul>
 </dd>
@@ -388,10 +388,10 @@ beta = beta_x  (constant)</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dose_phys</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>let_d</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>alpha_beta</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>)</p></li>
-<li><p><strong>model</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
+<li><p><strong>dose_phys</strong> (<em>physical dose array</em><em> [</em><em>Gy</em><em>]</em>)</p></li>
+<li><p><strong>let_d</strong> (<em>LETd array</em><em> [</em><em>keV/µm</em><em>]</em><em>, </em><em>same shape as dose_phys</em>)</p></li>
+<li><p><strong>alpha_beta</strong> (<em>α/β ratio</em><em> [</em><em>Gy</em><em>] </em><em>for this structure</em>)</p></li>
+<li><p><strong>model</strong> (<em>one</em><em> of </em><em>&quot;mcnamara&quot;</em><em>, </em><em>&quot;wedenberg&quot;</em><em>, </em><em>&quot;carabe&quot;</em>)</p></li>
 <li><p><strong>n_fractions</strong> (<em>int</em>)</p></li>
 </ul>
 </dd>

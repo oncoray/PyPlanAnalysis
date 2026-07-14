@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="API Reference" href="api/index.html"><link rel="prev" title="Installation" href="installation.html">
 
-    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+    <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
         <title>Quickstart - PyPlanAnalysis documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
@@ -246,8 +246,8 @@
 <h1>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">¶</a></h1>
 <section id="loading-a-plan">
 <h2>Loading a plan<a class="headerlink" href="#loading-a-plan" title="Link to this heading">¶</a></h2>
-<p>The easiest way to build a <a class="reference internal" href="api/plan.html#PyPlanAnalysis.plan.PatientPlan" title="PyPlanAnalysis.plan.PatientPlan"><code class="xref py py-class docutils literal notranslate"><span class="pre">PatientPlan</span></code></a> is to
-point <a class="reference internal" href="api/plan.html#PyPlanAnalysis.plan.PatientPlan.from_folder" title="PyPlanAnalysis.plan.PatientPlan.from_folder"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_folder()</span></code></a> at a directory
+<p>The easiest way to build a <code class="xref py py-class docutils literal notranslate"><span class="pre">PatientPlan</span></code> is to
+point <code class="xref py py-meth docutils literal notranslate"><span class="pre">from_folder()</span></code> at a directory
 containing the patient’s DICOM files (CT series, RTSTRUCT, RTPLAN, RTDOSE
 physical dose, RTDOSE LET). It auto-discovers and cross-links the files
 via their DICOM reference tags:</p>
@@ -279,7 +279,7 @@ plan manually instead:</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p><a class="reference internal" href="api/plan.html#PyPlanAnalysis.plan.PatientPlan.analyse" title="PyPlanAnalysis.plan.PatientPlan.analyse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">analyse()</span></code></a> accepts
+<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">analyse()</span></code> accepts
 <a class="reference internal" href="api/rbe.html#PyPlanAnalysis.rbe.RBEConfig" title="PyPlanAnalysis.rbe.RBEConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">RBEConfig</span></code></a>,
 <a class="reference internal" href="api/metrics.html#PyPlanAnalysis.metrics.MetricConfig" title="PyPlanAnalysis.metrics.MetricConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">MetricConfig</span></code></a>, and
 <a class="reference internal" href="api/metrics.html#PyPlanAnalysis.metrics.RadiobiologyConfig" title="PyPlanAnalysis.metrics.RadiobiologyConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">RadiobiologyConfig</span></code></a> to customise which RBE

@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Quickstart" href="quickstart.html"><link rel="prev" title="PyPlanAnalysis" href="index.html">
 
-    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+    <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
         <title>Installation - PyPlanAnalysis documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
@@ -248,9 +248,11 @@
 <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> build configuration.</p>
 <section id="from-a-local-clone">
 <h2>From a local clone<a class="headerlink" href="#from-a-local-clone" title="Link to this heading">¶</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/&lt;your-username&gt;/PyPlanAnalysis.git
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/oncoray/PyPlanAnalysis.git
 <span class="nb">cd</span><span class="w"> </span>PyPlanAnalysis
-pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>Environment.yml
+conda<span class="w"> </span>activate<span class="w"> </span>PyPlan_env
+pip<span class="w"> </span>install<span class="w"> </span>.<span class="w"> </span>--no-build-isolation<span class="w">  </span>--no-deps
 </pre></div>
 </div>
 </section>
@@ -269,10 +271,10 @@ at runtime — no separate download or manual path configuration needed.</p>
 <section id="development-install">
 <h2>Development install<a class="headerlink" href="#development-install" title="Link to this heading">¶</a></h2>
 <p>To also install the test dependencies:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
-pytest<span class="w"> </span>tests/
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>
 </pre></div>
 </div>
+<p>pip install -e . –no-build-isolation –no-deps</p>
 </section>
 </section>
 

@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="PyPlanAnalysis.rbe" href="rbe.html"><link rel="prev" title="PyPlanAnalysis.io" href="io.html">
 
-    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+    <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
         <title>PyPlanAnalysis.metrics - PyPlanAnalysis documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
@@ -259,12 +259,12 @@ per-structure radiobiological parameter configuration.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>alpha_beta_map</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></span>) – Keys are substrings of structure names (case-insensitive).
+<li><p><strong>alpha_beta_map</strong> (<em>dict</em>) – Keys are substrings of structure names (case-insensitive).
 Values are α/β [Gy].</p></li>
-<li><p><strong>alpha_beta_default</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>) – Fallback α/β when no key matches.</p></li>
-<li><p><strong>geud_a_map</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></span>) – Keys are substrings of structure names.
+<li><p><strong>alpha_beta_default</strong> (<em>float</em>) – Fallback α/β when no key matches.</p></li>
+<li><p><strong>geud_a_map</strong> (<em>dict</em>) – Keys are substrings of structure names.
 Values are gEUD parameter a.</p></li>
-<li><p><strong>geud_a_default</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>) – Fallback gEUD a.</p></li>
+<li><p><strong>geud_a_default</strong> (<em>float</em>) – Fallback gEUD a.</p></li>
 </ul>
 </dd>
 </dl>
@@ -324,16 +324,16 @@ Values are gEUD parameter a.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dx</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>) – Dx% points (% volume). e.g. [2, 5, 50, 95, 98]</p></li>
-<li><p><strong>lx</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>) – Lx% points (% volume). e.g. [2, 50, 98]</p></li>
-<li><p><strong>vx</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>) – Vx dose thresholds [Gy(RBE)]. e.g. [20, 30, 40, 50]</p></li>
-<li><p><strong>LET_thr</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>) – LETd threshold used to consider dirty dose (D where L&gt;LET_thr) [#keV/um]</p></li>
-<li><p><strong>compute_eqd2</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></span>) – Whether to compute EQD2 (requires alpha_beta).</p></li>
-<li><p><strong>compute_geud</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></span>) – Whether to compute gEUD.</p></li>
-<li><p><strong>dvh_bins</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Number of bins for DVH histograms.</p></li>
-<li><p><strong>lvh_bins</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Number of bins for LVH histograms.</p></li>
-<li><p><strong>dlvh_dose_bins</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Dose axis bins for 2-D DLVH.</p></li>
-<li><p><strong>dlvh_let_bins</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – LET axis bins for 2-D DLVH.</p></li>
+<li><p><strong>dx</strong> (<em>list</em><em> of </em><em>int/float</em>) – Dx% points (% volume). e.g. [2, 5, 50, 95, 98]</p></li>
+<li><p><strong>lx</strong> (<em>list</em><em> of </em><em>int/float</em>) – Lx% points (% volume). e.g. [2, 50, 98]</p></li>
+<li><p><strong>vx</strong> (<em>list</em><em> of </em><em>int/float</em>) – Vx dose thresholds [Gy(RBE)]. e.g. [20, 30, 40, 50]</p></li>
+<li><p><strong>LET_thr</strong> (<em>float</em>) – LETd threshold used to consider dirty dose (D where L&gt;LET_thr) [#keV/um]</p></li>
+<li><p><strong>compute_eqd2</strong> (<em>bool</em>) – Whether to compute EQD2 (requires alpha_beta).</p></li>
+<li><p><strong>compute_geud</strong> (<em>bool</em>) – Whether to compute gEUD.</p></li>
+<li><p><strong>dvh_bins</strong> (<em>int</em>) – Number of bins for DVH histograms.</p></li>
+<li><p><strong>lvh_bins</strong> (<em>int</em>) – Number of bins for LVH histograms.</p></li>
+<li><p><strong>dlvh_dose_bins</strong> (<em>int</em>) – Dose axis bins for 2-D DLVH.</p></li>
+<li><p><strong>dlvh_let_bins</strong> (<em>int</em>) – LET axis bins for 2-D DLVH.</p></li>
 <li><p><strong>New_grid</strong> (<em>list</em>)</p></li>
 </ul>
 </dd>
@@ -402,13 +402,13 @@ Values are gEUD parameter a.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dose_voxels</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>voxel_vol_cc</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>)</p></li>
-<li><p><strong>label</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
-<li><p><strong>metric_cfg</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#PyPlanAnalysis.metrics.MetricConfig" title="PyPlanAnalysis.metrics.MetricConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">MetricConfig</span></code></a></span>)</p></li>
-<li><p><strong>alpha_beta</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>)</p></li>
-<li><p><strong>geud_a</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>)</p></li>
-<li><p><strong>weights</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>) – If None, binary mask assumed (all weights = 1).
+<li><p><strong>dose_voxels</strong> (<em>1-D array</em><em> of </em><em>dose values</em><em> [</em><em>Gy</em><em> or </em><em>Gy</em><em>(</em><em>RBE</em><em>)</em><em>]</em><em>, </em><em>already masked</em>)</p></li>
+<li><p><strong>voxel_vol_cc</strong> (<em>volume</em><em> of </em><em>one voxel in cc</em>)</p></li>
+<li><p><strong>label</strong> (<em>prefix string for metric names</em><em> (</em><em>e.g. &quot;phys&quot;</em><em>, </em><em>&quot;RBE1.1&quot;</em><em>)</em>)</p></li>
+<li><p><strong>metric_cfg</strong> (<em>MetricConfig instance</em>)</p></li>
+<li><p><strong>alpha_beta</strong> (<em>α/β ratio</em><em> [</em><em>Gy</em><em>] </em><em>for EQD2</em>)</p></li>
+<li><p><strong>geud_a</strong> (<em>gEUD parameter a</em>)</p></li>
+<li><p><strong>weights</strong> (<em>optional 1-D array</em><em> of </em><em>fractional volumes</em><em> [</em><em>0</em><em>,</em><em>1</em><em>] </em><em>per voxel.</em>) – If None, binary mask assumed (all weights = 1).
 When provided, all metrics are volume-weighted.</p></li>
 <li><p><strong>n_fractions</strong> (<em>int</em>)</p></li>
 </ul>
@@ -431,11 +431,11 @@ the minimum LETd in the highest-LET x% of the structure volume.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>let_voxels</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>dose_voxels</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>lx_points</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>)</p></li>
-<li><p><strong>label</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
-<li><p><strong>weights</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
+<li><p><strong>let_voxels</strong> (<em>1-D array</em><em> of </em><em>LETd values</em><em> [</em><em>keV/µm</em><em>]</em>)</p></li>
+<li><p><strong>dose_voxels</strong> (<em>1-D array</em><em> of </em><em>physical dose values</em><em> [</em><em>Gy</em><em>]</em><em>, </em><em>same voxels</em>)</p></li>
+<li><p><strong>lx_points</strong> (<em>list</em><em> of </em><em>x values for Lx%</em>)</p></li>
+<li><p><strong>label</strong> (<em>prefix for metric names</em>)</p></li>
+<li><p><strong>weights</strong> (<em>optional fractional volumes</em><em> [</em><em>0</em><em>,</em><em>1</em><em>] </em><em>per voxel</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>

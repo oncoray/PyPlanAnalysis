@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="PyPlanAnalysis.metrics" href="metrics.html"><link rel="prev" title="PyPlanAnalysis.plan" href="plan.html">
 
-    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+    <!-- Generated with Sphinx 9.0.4 and Furo 2025.12.19 -->
         <title>PyPlanAnalysis.io - PyPlanAnalysis documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
@@ -353,8 +353,8 @@ the CT grid on which contours will be rasterised.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sitk_dose</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Image</span></code></span>)</p></li>
-<li><p><strong>sitk_ct</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Image</span></code></span>)</p></li>
+<li><p><strong>sitk_dose</strong> (<em>SimpleITK.Image</em><em>  (</em><em>dose</em><em> or </em><em>LET</em><em>, </em><em>in dose-grid coordinates</em><em>)</em>)</p></li>
+<li><p><strong>sitk_ct</strong> (<em>SimpleITK.Image</em><em>  (</em><em>full CT series</em><em>)</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -425,12 +425,12 @@ Contour z-values are matched to the nearest z in z_positions.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>struct_name</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
+<li><p><strong>struct_name</strong> (<em>str</em>)</p></li>
 <li><p><strong>rtstruct_ds</strong> (<em>pydicom Dataset</em>)</p></li>
-<li><p><strong>origin</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>)</p></li>
-<li><p><strong>spacing</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>)</p></li>
-<li><p><strong>shape</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></span>)</p></li>
-<li><p><strong>z_positions</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
+<li><p><strong>origin</strong> (<em>[</em><em>x0</em><em>, </em><em>y0</em><em>, </em><em>z0</em><em>]  </em><em>mm — physical coordinate</em><em> of </em><em>voxel</em><em> (</em><em>0</em><em>,</em><em>0</em><em>,</em><em>0</em><em>) </em><em>corner</em>)</p></li>
+<li><p><strong>spacing</strong> (<em>[</em><a class="reference internal" href="metrics.html#PyPlanAnalysis.metrics.MetricConfig.dx" title="PyPlanAnalysis.metrics.MetricConfig.dx"><em>dx</em></a><em>, </em><em>dy</em><em>, </em><em>dz</em><em>]  </em><em>mm</em>)</p></li>
+<li><p><strong>shape</strong> (<em>(</em><em>nz</em><em>, </em><em>ny</em><em>, </em><em>nx</em><em>) </em><em>— numpy array shape</em>)</p></li>
+<li><p><strong>z_positions</strong> (<em>1-D array</em><em> of </em><em>z-coordinates for each slice</em><em> (</em><em>length nz</em><em>)</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -556,13 +556,13 @@ supersampling (supersample² sub-points per voxel).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>struct_name</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>)</p></li>
+<li><p><strong>struct_name</strong> (<em>str</em>)</p></li>
 <li><p><strong>rtstruct_ds</strong> (<em>pydicom Dataset</em>)</p></li>
-<li><p><strong>origin</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>)</p></li>
-<li><p><strong>spacing</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span>)</p></li>
-<li><p><strong>shape</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></span>)</p></li>
-<li><p><strong>z_positions</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span>)</p></li>
-<li><p><strong>supersample</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>)</p></li>
+<li><p><strong>origin</strong> (<em>[</em><em>x0</em><em>, </em><em>y0</em><em>, </em><em>z0</em><em>]  </em><em>mm</em>)</p></li>
+<li><p><strong>spacing</strong> (<em>[</em><a class="reference internal" href="metrics.html#PyPlanAnalysis.metrics.MetricConfig.dx" title="PyPlanAnalysis.metrics.MetricConfig.dx"><em>dx</em></a><em>, </em><em>dy</em><em>, </em><em>dz</em><em>]  </em><em>mm</em>)</p></li>
+<li><p><strong>shape</strong> (<em>(</em><em>nz</em><em>, </em><em>ny</em><em>, </em><em>nx</em><em>)</em>)</p></li>
+<li><p><strong>z_positions</strong> (<em>1-D array length nz</em>)</p></li>
+<li><p><strong>supersample</strong> (<em>N subdivisions per side</em><em> (</em><em>default 4 → 16 sub-points/voxel</em><em>)</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
