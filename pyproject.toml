@@ -32,10 +32,12 @@ dependencies = [
     "scikit-image",
     "openpyxl",       # required by pandas to read .xlsx (NTCP parameter workbook)
     "SimpleITK",
+    "pytest"
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = [] #"pytest"
+docs = ["sphinx", "furo", "myst-parser", "sphinx-autodoc-typehints"]
 
 [project.urls]
 Homepage = "https://github.com/oncoray/PyPlanAnalysis"
