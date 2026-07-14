@@ -31,12 +31,11 @@ dependencies = [
     "pydicom",
     "scikit-image",
     "openpyxl",       # required by pandas to read .xlsx (NTCP parameter workbook)
-    "SimpleITK",
-    "pytest"
+    "SimpleITK"
 ]
 
 [project.optional-dependencies]
-dev = [] #"pytest"
+dev = ["pytest"]
 docs = ["sphinx", "furo", "myst-parser", "sphinx-autodoc-typehints"]
 
 [project.urls]
