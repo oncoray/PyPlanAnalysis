@@ -9,9 +9,11 @@ From a local clone
 
 .. code-block:: bash
 
-   git clone https://github.com/<your-username>/PyPlanAnalysis.git
+   git clone https://github.com/oncoray/PyPlanAnalysis.git
    cd PyPlanAnalysis
-   pip install -e .
+   conda env create -f Environment.yml
+   conda activate PyPlan_env
+   pip install . --no-build-isolation  --no-deps  
 
 Requirements
 ------------
@@ -32,5 +34,5 @@ To also install the test dependencies:
 
 .. code-block:: bash
 
-   pip install -e ".[dev]"
-   pytest tests/
+   
+pip install -e . --no-build-isolation --no-deps
