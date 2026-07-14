@@ -227,7 +227,7 @@ class NTCPModelBase():
         ``_define_side_by_geometry``/``get_roi_center_of_mass``). If
         center-of-mass data isn't available for the CTV or for every
         candidate ROI, this falls back to the previous dose-value
-        heuristic (candidate with the highest dose = ipsi, lowest =
+        heuristic (candidate with the highest  mean dose = ipsi, lowest =
         contra).
 
         Parameters
