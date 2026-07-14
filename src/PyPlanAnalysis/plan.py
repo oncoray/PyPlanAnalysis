@@ -12,10 +12,10 @@ import pandas as pd
 from pathlib import Path
 import re
 import pydicom
-
+from typing import Union
 import matplotlib.pyplot as plt
 from .io       import (load_ct_series,load_dose_grid, get_grid_geometry, get_fractional_mask_on_grid,get_structure_mask_on_grid,
-                        get_all_structure_names, find_dicom_files,resample_dose_on_ct,_np_to_sitk,resample_dose_to_new_grid)
+                        get_all_structure_names, find_dicom_files,resample_dose_on_ct,_np_to_sitk,resample_dose_to_new_grid,get_roi_center_of_mass)
 from .rbe      import RBEConfig, rbe_fixed, compute_rbe_dose
 from .metrics  import (RadiobiologyConfig, MetricConfig,
                         compute_dvh_metrics, compute_let_metrics,
@@ -410,12 +410,21 @@ class PatientPlan:
                 eff_vol_cc = float(mask.sum() * vol_cc)
 
             
+            try:
+                com = get_roi_center_of_mass(struct_name, self._rtstruct_ds)
+            except Exception as e:
+                warnings.warn(f"Could not compute center of mass for '{struct_name}': {e}")
+                com = None
+
             row = {
                 "patient_id"  : self.patient_id,
                 "ROI_Name"   : struct_name,
                 "volume_cc"   : eff_vol_cc,
                 "alpha_beta"  : ab,
                 "geud_a"      : geud_a,
+                "COM_x"       : com[0] if com is not None else np.nan,
+                "COM_y"       : com[1] if com is not None else np.nan,
+                "COM_z"       : com[2] if com is not None else np.nan,
             }
 
             dvh_data[struct_name] = {}
@@ -535,20 +544,23 @@ class AnalysisResults:
     # ----------------------------------
     # NTCP calculation
     # ----------------------------------
+
+                
     def CalcNTCP (self, NTCPConfig:  NTCPConfig, path_models_xls: str = None):
         # load list with model names and corresponding parameter names
         list_RBE_calculated = list(self.dvh_data[list(self.dvh_data.keys())[0]].keys())
         NTCP_results =  {}
         for NTCP_model in NTCPConfig.models:
-            NTCP_base  = NTCPModelBase(NTCP_model, path_models_xls)
+            roi_override = NTCPConfig.roi_overrides.get(NTCP_model) if NTCPConfig.roi_overrides else None
+            NTCP_base  = NTCPModelBase(NTCP_model, path_models_xls,
+                                        roi_name = roi_override,
+                                        ctv_name = NTCPConfig.ctv_name)
             NTCP_dict = {}
             for RBE in list_RBE_calculated:
                 NTCP_dict[RBE]  = NTCP_base.compute_NTCP(RBE, self.metrics_df)
             NTCP_results[NTCP_model] = NTCP_dict
             
-        return NTCP_results
-                
-            
+        return NTCP_results       
  
     
     # ----------------------------------------------------------

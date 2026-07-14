@@ -188,7 +188,8 @@ class NTCPModelBase():
         Resolve which structure (ROI) to use when a model applies to a
         laterality-specific OAR (e.g. "Cochlea ipsi" vs "Cochlea contra")
         and the metrics DataFrame has more than one ROI matching
-        ``self.OAR_name``.
+        ``self.OAR_name``. THIS IS ONLY WORKING BASED ON DOSE PARAMETERS
+        OF THE GIVEN NTCP. FUTURE DEV WILL IMPLEMENT GEOMETRY BASED SELECTION.
 
         Parameters
         ----------
@@ -639,8 +640,7 @@ def NTCP__Erythema_G2_acute(x, beta_0=-1.54, beta_1=0.056):
 
     Returns
     -------
-    float
-        NTCP probability in [0, 1]  .
+    float  NTCP probability in [0, 1]  .
     """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
@@ -669,8 +669,7 @@ def NTCP__Fatigue_G1_24m(x, beta_0=-1.52, beta_1=0.021, beta_2=-1.16):
 
     Returns
     -------
-    float
-        NTCP probability in [0, 1]  .
+    float NTCP probability in [0, 1]  .
     """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]-beta_2*x[1]))  
 
@@ -700,8 +699,7 @@ def NTCP__Fatigue_G1_acute(x, beta_0=-0.90, beta_1=0.027, beta_2=1.28):
 
     Returns
     -------
-    float
-        NTCP probability in [0, 1]  .
+    float NTCP probability in [0, 1]  .
     """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]-beta_2*x[1]))
 

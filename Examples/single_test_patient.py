@@ -71,6 +71,13 @@ radiobio_cfg = RadiobiologyConfig(
 
 NTCP_config = NTCPConfig() # uses built-in defaults
 
+#or Select specific ROIs
+NTCP_config = NTCPConfig(
+    models=["HearingLoss_late__Cochlea_ipsi", "HearingLoss_late__Cochlea_contra"],
+    roi_overrides={"HearingLoss_late__Cochlea_ipsi": "Cochlea_L"},  # explicit ROI, skips OAR/side logic
+    ctv_name="CTV_boost",  # optional; omit to auto-pick first "CTV" match
+)
+
 # ------------------------------------------------------------------
 # 4. Run the analysis
 # ------------------------------------------------------------------
@@ -106,6 +113,7 @@ results.plot_dlvh(output_dir / "dlvh_2d")
 NTCP_summary = results.CalcNTCP(NTCP_config,Paths.UTILS / "NTCPModels_params.xlsx")
 NTCP_summary = pd.DataFrame.from_dict(NTCP_summary)
 save_ntcp = output_dir /  "NTCP_metrics.xlsx"
+
 
 NTCP_summary.to_excel(save_ntcp)
 print (f"Saved NTCP metrics at '{save_ntcp}'")
