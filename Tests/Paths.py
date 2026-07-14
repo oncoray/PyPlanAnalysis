@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT    = Path(__file__).parent.parent
 
-SOURCE  = ROOT  /  "Source"
+SOURCE  = ROOT  /  "Src"
 TEST    = ROOT  /  "Tests"
 
 TEST_DATA       = TEST  / "test_data" 
@@ -20,4 +20,4 @@ TEST_OUTPUT = TEST  / "test_output"
 TEST_PA_OUTPUT  =  Path("plan_analysis_outputs")
 TEST_RESULTS    = Path("test_results")
 
-UTILS  = ROOT / "Utils"
+UTILS  = SOURCE / "PyPlanAnalysis" / "data"

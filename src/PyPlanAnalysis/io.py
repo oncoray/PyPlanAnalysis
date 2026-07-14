@@ -1,6 +1,7 @@
 """
 PyPlanAnalysis.io
-=============
+==================
+
 DICOM discovery and loading, CT/dose grid resampling, and RT Struct
 mask extraction (binary and fractional).
 """
@@ -810,7 +811,71 @@ def get_structure_mask_on_grid(struct_name: str,
         mask[z_idx] |= inside
  
     return mask
+
+def get_roi_center_of_mass(struct_name: str, rtstruct_ds) -> np.ndarray:
+    """
+    Compute the 3-D center of mass (mm, in the RT Struct's patient
+    coordinate system) of a structure directly from its contour
+    polygons — no dose/CT grid required.
  
+    Each contour (one per slice) contributes its own 2-D polygon
+    centroid, weighted by that contour's area, so slices with more
+    cross-sectional area count more towards the overall COM volume-weighted approximation without needing a full
+    3-D mask.
+ 
+    Parameters
+    ----------
+    struct_name : str
+        Structure name as it appears in the RT Struct.
+    rtstruct_ds : pydicom Dataset
+ 
+    Returns
+    -------
+    np.ndarray, shape (3,), or None
+        ``[x, y, z]`` center of mass in mm. Returns ``None`` if no
+        usable contour data is available for this structure.
+    """
+    name_to_roi, roi_to_contours = _build_roi_maps(rtstruct_ds)
+ 
+    key = struct_name.strip().lower()
+    if key not in name_to_roi:
+        raise ValueError(
+            f"Structure '{struct_name}' not found in RT Struct. "
+            f"Available: {[item.ROIName for item in rtstruct_ds.StructureSetROISequence]}"
+        )
+    roi_number = name_to_roi[key]
+    contours   = roi_to_contours.get(roi_number, [])
+ 
+    if not contours:
+        warnings.warn(f"No contour data for '{struct_name}' — cannot compute center of mass.")
+        return None
+ 
+    centroids = []
+    weights   = []
+    for pts in contours:
+        xy = pts[:, :2]
+        if len(xy) < 3:
+            continue
+        area = contour_area_signed(xy)
+        if area == 0:
+            continue
+        x, y   = xy[:, 0], xy[:, 1]
+        x1, y1 = np.roll(x, -1), np.roll(y, -1)
+        cross  = x * y1 - x1 * y
+        cx = np.sum((x + x1) * cross) / (6 * area)
+        cy = np.sum((y + y1) * cross) / (6 * area)
+        z  = float(pts[0, 2])
+        centroids.append([cx, cy, z])
+        weights.append(abs(area))
+ 
+    if not centroids:
+        warnings.warn(f"Could not compute a valid centroid for '{struct_name}'.")
+        return None
+ 
+    centroids = np.array(centroids)
+    weights   = np.array(weights)
+    return np.average(centroids, axis=0, weights=weights)
+
 def contour_area_signed(xy):
     """
     Signed polygon area via the shoelace formula.

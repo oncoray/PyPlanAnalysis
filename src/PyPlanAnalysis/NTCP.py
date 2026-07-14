@@ -39,12 +39,30 @@ class NTCPConfig:
         column of the bundled ``NTCPModels_params.xlsx`` workbook).
         Default: all models listed below.
 
+    roi_overrides : dict
+        Optional ``{model_name: roi_name}`` mapping. When a model name
+        is present here, its exact ``roi_name`` (must match a value in
+        ``metrics_df["ROI_Name"]``) is used directly instead of the
+        ``OAR`` substring match from the parameter workbook — lets you
+        point a model at a specific contoured ROI on a per-patient
+        basis, even if it doesn't match the workbook's OAR column.
+        Default: empty (use the workbook's OAR-based matching for
+        every model).
+    ctv_name : str or None
+        Optional exact ``ROI_Name`` to use as "the CTV" reference for
+        geometry-based ipsi/contra selection (see
+        ``NTCPModelBase.define_side``). Default: None, which falls
+        back to the first ROI (in table order) whose name contains
+        "CTV" (case-insensitive).
+
     Notes
     -----
     Each model name maps to one ``NTCP__*`` implementation function in
     this module (brain/head-and-neck late- and acute-toxicity endpoints
     from Dutz, De Marzi, Burman, Gondi, Kong, Lee, Bender and Batth).
     """
+    roi_overrides : dict = field(default_factory=dict)
+    ctv_name      : str  = None
     models    : list = field(default_factory=lambda:['Alopecia_G1_12m__1',
         'Alopecia_G1_12m__2',
         'Alopecia_G1_24m__1',
@@ -97,6 +115,15 @@ class NTCPModelBase():
         Path to the NTCP parameter workbook (``.xlsx``). Default: None,
         which resolves to the workbook bundled with the package via
         ``default_ntcp_params_path()``.
+    roi_name : str, optional
+        Exact ``ROI_Name`` to use for this model, bypassing the
+        workbook's ``OAR`` substring match entirely. Must match a
+        value in ``metrics_df["ROI_Name"]`` (case-insensitive exact
+        match). Default: None (use OAR-based matching).
+    ctv_name : str, optional
+        Exact ``ROI_Name`` to treat as "the CTV" for geometry-based
+        ipsi/contra selection. Default: None, which falls back to the
+        first ROI (in table order) whose name contains "CTV".
 
     Attributes
     ----------
@@ -112,14 +139,18 @@ class NTCPModelBase():
     impl_fn : callable
         The ``NTCP__*`` function implementing this model's formula.
     """
-    def __init__(self, model_name, df_models_path):
+    def __init__(self, model_name, df_models_path, roi_name=None, ctv_name=None):
         self.model_name = model_name
+        self.roi_name_override = roi_name
+        self.ctv_name = ctv_name
         if df_models_path is None:
             df_models_path = default_ntcp_params_path()
+
         df_models = pd.read_excel(df_models_path)
         self.numberOfVariables = df_models["numberOfVariables"][df_models["model_name"]==self.model_name].values[0]
         self.parameterNames = []
         self.OAR_name =  df_models["OAR"][df_models["model_name"]==self.model_name].values[0]
+        self.not_printed = True
         
         if "ipsi" in self.model_name:
             self.side = "ipsi"
@@ -130,7 +161,7 @@ class NTCPModelBase():
             
         for i in range(1,self.numberOfVariables+1):
             self.parameterNames.append(df_models["parameterName_"+str(i)][df_models["model_name"]==model_name].values[0]) 
-        
+
         self.impl_fn = npNan #eventuell auskommentieren
         if "Alopecia_G1_12m__1" in self.model_name:
             self.impl_fn = NTCP__Alopecia_G1_12m__1 
@@ -190,6 +221,15 @@ class NTCPModelBase():
         and the metrics DataFrame has more than one ROI matching
         ``self.OAR_name``.
 
+        Selection is geometry-based when possible: the candidate ROI
+        whose center of mass is closest to the CTV's center of mass is
+        "ipsi", the farthest is "contra" (see
+        ``_define_side_by_geometry``/``get_roi_center_of_mass``). If
+        center-of-mass data isn't available for the CTV or for every
+        candidate ROI, this falls back to the previous dose-value
+        heuristic (candidate with the highest dose = ipsi, lowest =
+        contra).
+
         Parameters
         ----------
         vRBE_model : str
@@ -208,25 +248,116 @@ class NTCPModelBase():
         """
         rois = {}
         for s in dfi_dvh["ROI_Name"]:
-            if self.OAR_name.lower() in s.lower():
+            if (self.OAR_name.lower() in s.lower()) or (s.lower() in self.OAR_name.lower()):
                 val = dfi_dvh[vRBE_model + '_' + parameterName][dfi_dvh["ROI_Name"] == s]
                 rois[s] = val.values[0]
     
         # If only one (or zero) matching ROI, no side selection needed
         if len(rois) <= 1:
             return next(iter(rois), None)
-    
+
         # Only apply ipsi/contra logic if the model name signals it
-        
-        if self.side == "ipsi" :
-            return max(rois, key=lambda k: rois[k])
-        elif self.side == "contra" :
-            return min(rois, key=lambda k: rois[k])
-        else:
+        if self.side not in ("ipsi", "contra"):
             # Multiple ROIs but no side info in model name — fall back to first match
             return next(iter(rois))
+
+        # --- Prefer geometry-based (COM-distance-to-CTV) selection ---
+        geom_choice = self._define_side_by_geometry(dfi_dvh, list(rois.keys()))
+        if geom_choice is not None:
+            if self.not_printed:
+                print(f"{geom_choice} chosen as {self.side} ROI for {self.model_name} based on geometry")
+                self.not_printed = False
+            return geom_choice
+
+        # --- Fallback: dose-value heuristic ---
+        if self.side == "ipsi" :
+            
+            print(f"{max(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {vRBE_model}")
+            return max(rois, key=lambda k: rois[k])
+        else:
+            
+            print(f"{min(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {vRBE_model}")
+            return min(rois, key=lambda k: rois[k])
+
+    def _define_side_by_geometry(self, dfi_dvh, candidate_rois):
+        """
+        Assign ipsi/contra by comparing each candidate ROI's center of
+        mass (``COM_x``/``COM_y``/``COM_z`` columns, populated by
+        ``PatientPlan.analyse()``) to the CTV's center of mass: the
+        candidate closest to the CTV is "ipsi", the farthest is
+        "contra".
+
+        Returns None (triggering the dose-based fallback in
+        ``define_side``) if the COM columns are missing, no CTV
+        reference can be resolved, or COM data is missing for the CTV
+        or any candidate ROI.
+        """
+        if not {"COM_x", "COM_y", "COM_z"}.issubset(dfi_dvh.columns):
+            return None
+
+        ctv_row_name = self._resolve_ctv_name(dfi_dvh)
+        if ctv_row_name is None:
+            return None
+
+        ctv_com = dfi_dvh.loc[dfi_dvh["ROI_Name"] == ctv_row_name,
+                              ["COM_x", "COM_y", "COM_z"]].values
+        if len(ctv_com) == 0 or np.isnan(ctv_com).any():
+            return None
+        ctv_com = ctv_com[0]
+
+        distances = {}
+        for roi in candidate_rois:
+            com = dfi_dvh.loc[dfi_dvh["ROI_Name"] == roi,
+                              ["COM_x", "COM_y", "COM_z"]].values
+            if len(com) == 0 or np.isnan(com).any():
+                continue
+            distances[roi] = float(np.linalg.norm(com[0] - ctv_com))
+
+        # Require COM data for every candidate — a partial comparison
+        # isn't a safe basis for ipsi/contra assignment.
+        if len(distances) < len(candidate_rois):
+            return None
+
+        if self.side == "ipsi":
+            return min(distances, key=distances.get)
+        else:
+            return max(distances, key=distances.get)
+
+    def _resolve_ctv_name(self, dfi_dvh):
+        """
+        Resolve which ROI represents the CTV for geometry-based side
+        selection: ``self.ctv_name`` (exact match) if set, otherwise
+        the first ROI (in table order) whose name contains "CTV"
+        (case-insensitive).
+        """
+        if self.ctv_name:
+            for s in dfi_dvh["ROI_Name"]:
+                if s.strip().lower() == self.ctv_name.strip().lower():
+                    return s
+            if self.not_printed:
+                print(f"{self.ctv_name} is not available for for Ipsi/Contra definition")
+                self.not_printed = False
+            return None
+        for s in dfi_dvh["ROI_Name"]:
+            if "ctv" in s.lower():
+                return s
+        return None
+
+    def _match_roi_name(self, dfi_dvh, roi_name):
+        """
+        Resolve a user-supplied ``roi_name`` override to the exact
+        ``ROI_Name`` value present in ``dfi_dvh`` (case-insensitive
+        exact match — this is a specific user choice, not a fuzzy
+        substring search).
+        """
+        for s in dfi_dvh["ROI_Name"]:
+            if s.strip().lower() == roi_name.strip().lower():
+                return s
+        raise ValueError(
+            f"roi_name override '{roi_name}' not found in metrics_df['ROI_Name']."
+        )
         
-    def compute_x(self,vRBE_model,dfi_dvh):
+    def compute_x(self,vRBE_model,dfi_dvh,roi):
         """
         Build the covariate vector ``x`` this model's ``impl_fn`` expects,
         by pulling ``self.parameterNames`` columns for the matched ROI(s)
@@ -238,7 +369,8 @@ class NTCPModelBase():
             Dose-type/RBE-model label prefix (see ``define_side``).
         dfi_dvh : pandas.DataFrame
             Patient metrics table (``AnalysisResults.metrics_df``).
-
+        roi : str
+            ROI name defined on (``compute_NTCP``).
         Returns
         -------
         list of float
@@ -247,19 +379,12 @@ class NTCPModelBase():
             not be found.
         """
         x = []
+        
+                           
         for i in range(0,self.numberOfVariables):
             try:
-                if self.side:
-                    roi = self.define_side(vRBE_model,dfi_dvh,self.parameterNames[i])
-                    potential_x = [dfi_dvh[vRBE_model+'_'+self.parameterNames[i]][dfi_dvh["ROI_Name"]==roi]]
-                    x.append(potential_x[0].values[0]) 
-                else:
-                    roi = None
-                    for s in dfi_dvh["ROI_Name"]:
-                        if self.OAR_name.lower() in s.lower():
-                            roi = s
-                    potential_x = [dfi_dvh[vRBE_model+'_'+self.parameterNames[i]][dfi_dvh["ROI_Name"]==roi]]
-                    x.append(potential_x[0].values[0]) 
+                potential_x = [dfi_dvh[vRBE_model+'_'+self.parameterNames[i]][dfi_dvh["ROI_Name"]==roi]]
+                x.append(potential_x[0].values[0])
             except:
                 x.append(np.nan)
         return x
@@ -267,7 +392,8 @@ class NTCPModelBase():
     def compute_NTCP(self, vRBE_model,dfi_dvh):
         """
         Compute this model's NTCP for one patient and one dose type.
-
+        Define ipsi/contra first based on COM, mean dose as fallback
+        
         Parameters
         ----------
         vRBE_model : str
@@ -281,7 +407,18 @@ class NTCPModelBase():
             NTCP in percent (0-100), rounded to 4 decimals. Returns
             ``None`` if any required covariate is missing/NaN.
         """
-        x = self.compute_x(vRBE_model,dfi_dvh)
+           
+        if self.roi_name_override:
+            # Explicit user choice — bypass OAR/side matching entirely.
+            roi = self._match_roi_name(dfi_dvh, self.roi_name_override)
+        elif self.side:
+            roi = self.define_side(vRBE_model,dfi_dvh,"Dmean")
+        else:
+            roi = None
+            for s in dfi_dvh["ROI_Name"]:
+                if self.OAR_name.lower() in s.lower():
+                    roi = s
+        x = self.compute_x(vRBE_model,dfi_dvh,roi)
         if not np.isnan(x).any():
             return np.round(self.impl_fn(x)*100,4)
             
@@ -639,8 +776,7 @@ def NTCP__Erythema_G2_acute(x, beta_0=-1.54, beta_1=0.056):
 
     Returns
     -------
-    float
-        NTCP probability in [0, 1]  .
+    float  NTCP probability in [0, 1]  .
     """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]))
 
@@ -669,8 +805,7 @@ def NTCP__Fatigue_G1_24m(x, beta_0=-1.52, beta_1=0.021, beta_2=-1.16):
 
     Returns
     -------
-    float
-        NTCP probability in [0, 1]  .
+    float NTCP probability in [0, 1]  .
     """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]-beta_2*x[1]))  
 
@@ -700,8 +835,7 @@ def NTCP__Fatigue_G1_acute(x, beta_0=-0.90, beta_1=0.027, beta_2=1.28):
 
     Returns
     -------
-    float
-        NTCP probability in [0, 1]  .
+    float NTCP probability in [0, 1]  .
     """
     return 1/(1+np.exp(-beta_0-beta_1*x[0]-beta_2*x[1]))
 
