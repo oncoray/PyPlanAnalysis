@@ -246,35 +246,56 @@
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h1>
 <p>PyPlanAnalysis uses a standard <code class="docutils literal notranslate"><span class="pre">src</span></code>-layout package with a
 <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> build configuration.</p>
-<section id="from-a-local-clone">
-<h2>From a local clone<a class="headerlink" href="#from-a-local-clone" title="Link to this heading">¶</a></h2>
+<p>There are two supported ways to install it, depending on whether your
+environment has direct access to PyPI.</p>
+<section id="standard-install-pypi-access-available">
+<h2>Standard install (PyPI access available)<a class="headerlink" href="#standard-install-pypi-access-available" title="Link to this heading">¶</a></h2>
+<p>If your machine has normal internet/PyPI access</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/oncoray/PyPlanAnalysis.git
+<span class="nb">cd</span><span class="w"> </span>PyPlanAnalysis
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</pre></div>
+</div>
+<p>To also install development dependencies (<code class="docutils literal notranslate"><span class="pre">pytest</span></code>):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+</pre></div>
+</div>
+<p>To also install documentation dependencies (<code class="docutils literal notranslate"><span class="pre">sphinx</span></code>, <code class="docutils literal notranslate"><span class="pre">furo</span></code>, etc.):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[docs]&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="conda-based-install-restricted-firewalled-networks">
+<h2>Conda-based install (restricted/firewalled networks)<a class="headerlink" href="#conda-based-install-restricted-firewalled-networks" title="Link to this heading">¶</a></h2>
+<p>If your network blocks direct access to PyPI (common on institutional or
+clinical workstations), use <code class="docutils literal notranslate"><span class="pre">Environment.yml</span></code> to install all
+dependencies via conda first, then install the package itself</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/oncoray/PyPlanAnalysis.git
 <span class="nb">cd</span><span class="w"> </span>PyPlanAnalysis
 conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>Environment.yml
 conda<span class="w"> </span>activate<span class="w"> </span>PyPlan_env
-pip<span class="w"> </span>install<span class="w"> </span>.<span class="w"> </span>--no-build-isolation<span class="w">  </span>--no-deps
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="w"> </span>--no-deps<span class="w"> </span>--no-build-isolation
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">--no-deps</span></code> skips installing runtime dependencies via pip, since they
+are already provided by the conda environment. <code class="docutils literal notranslate"><span class="pre">--no-build-isolation</span></code>
+avoids pip fetching build tools (<code class="docutils literal notranslate"><span class="pre">setuptools</span></code>, <code class="docutils literal notranslate"><span class="pre">wheel</span></code>) into an
+isolated build environment</p>
 </section>
 <section id="requirements">
 <h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>Python &gt;= 3.10</p></li>
-<li><p>Core dependencies (installed automatically): <code class="docutils literal notranslate"><span class="pre">numpy</span></code>, <code class="docutils literal notranslate"><span class="pre">pandas</span></code>,
-<code class="docutils literal notranslate"><span class="pre">scipy</span></code>, <code class="docutils literal notranslate"><span class="pre">matplotlib</span></code>, <code class="docutils literal notranslate"><span class="pre">pydicom</span></code>, <code class="docutils literal notranslate"><span class="pre">scikit-image</span></code>, <code class="docutils literal notranslate"><span class="pre">openpyxl</span></code>,
+<li><p>Core dependencies (installed automatically via <code class="docutils literal notranslate"><span class="pre">pip</span></code> or provided
+via <code class="docutils literal notranslate"><span class="pre">Environment.yml</span></code>): <code class="docutils literal notranslate"><span class="pre">numpy</span></code>, <code class="docutils literal notranslate"><span class="pre">pandas</span></code>, <code class="docutils literal notranslate"><span class="pre">scipy</span></code>,
+<code class="docutils literal notranslate"><span class="pre">matplotlib</span></code>, <code class="docutils literal notranslate"><span class="pre">pydicom</span></code>, <code class="docutils literal notranslate"><span class="pre">scikit-image</span></code>, <code class="docutils literal notranslate"><span class="pre">openpyxl</span></code>,
 <code class="docutils literal notranslate"><span class="pre">SimpleITK</span></code>.</p></li>
+<li><p>For the conda-based install: <code class="docutils literal notranslate"><span class="pre">setuptools</span></code> and <code class="docutils literal notranslate"><span class="pre">wheel</span></code> must also
+be listed in <code class="docutils literal notranslate"><span class="pre">Environment.yml</span></code>.</p></li>
 </ul>
 <p>The NTCP parameter workbook (<code class="docutils literal notranslate"><span class="pre">NTCPModels_params.xlsx</span></code>) is bundled
 inside the package (<code class="docutils literal notranslate"><span class="pre">PyPlanAnalysis/data/</span></code>) and is located automatically
 at runtime — no separate download or manual path configuration needed.</p>
-</section>
-<section id="development-install">
-<h2>Development install<a class="headerlink" href="#development-install" title="Link to this heading">¶</a></h2>
-<p>To also install the test dependencies:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<p>pip install -e . –no-build-isolation –no-deps</p>
 </section>
 </section>
 
@@ -334,9 +355,9 @@ at runtime — no separate download or manual path configuration needed.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Installation</a><ul>
-<li><a class="reference internal" href="#from-a-local-clone">From a local clone</a></li>
+<li><a class="reference internal" href="#standard-install-pypi-access-available">Standard install (PyPI access available)</a></li>
+<li><a class="reference internal" href="#conda-based-install-restricted-firewalled-networks">Conda-based install (restricted/firewalled networks)</a></li>
 <li><a class="reference internal" href="#requirements">Requirements</a></li>
-<li><a class="reference internal" href="#development-install">Development install</a></li>
 </ul>
 </li>
 </ul>
