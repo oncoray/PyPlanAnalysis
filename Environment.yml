@@ -10,6 +10,7 @@ dependencies:
   - pydicom>=2.4
   - openpyxl>=3.1
   - scikit-image
+  - pytest
   - simpleitk
   - pip
   - setuptools

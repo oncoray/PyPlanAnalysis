@@ -27,6 +27,7 @@ dist/
 *.egg-info/
 *.egg
 __pycache__/
+docs/_build/
 
 # Logs
 *.log
