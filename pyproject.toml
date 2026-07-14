@@ -36,7 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
-docs = ["sphinx", "furo", "myst-parser", "sphinx-autodoc-typehints"]
+docs = ["sphinx", "furo", "myst-parser", "sphinx_autodoc_typehints"]
 
 [project.urls]
 Homepage = "https://github.com/oncoray/PyPlanAnalysis"
