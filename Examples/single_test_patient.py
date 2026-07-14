@@ -73,9 +73,9 @@ NTCP_config = NTCPConfig() # uses built-in defaults
 
 #or Select specific ROIs
 NTCP_config = NTCPConfig(
-    models=["HearingLoss_late__Cochlea_ipsi", "HearingLoss_late__Cochlea_contra"],
-    roi_overrides={"HearingLoss_late__Cochlea_ipsi": "Cochlea_L"},  # explicit ROI, skips OAR/side logic
-    ctv_name="CTV_boost",  # optional; omit to auto-pick first "CTV" match
+    models=["OcularToxicity_G2_acute__LacrimalGland_ipsi", "OcularToxicity_G2_acute__LacrimalGland_contra"],
+    #roi_overrides={"OcularToxicity_G2_acute__LacrimalGland_ipsi": "LacrimalGland_L"},  # explicit ROI, skips OAR/side logic
+    ctv_name="CTV_48000_phy",  # optional; omit to auto-pick first "CTV" match
 )
 
 # ------------------------------------------------------------------

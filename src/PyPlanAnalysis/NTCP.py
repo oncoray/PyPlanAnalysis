@@ -150,6 +150,7 @@ class NTCPModelBase():
         self.numberOfVariables = df_models["numberOfVariables"][df_models["model_name"]==self.model_name].values[0]
         self.parameterNames = []
         self.OAR_name =  df_models["OAR"][df_models["model_name"]==self.model_name].values[0]
+        self.not_printed = True
         
         if "ipsi" in self.model_name:
             self.side = "ipsi"
@@ -213,63 +214,70 @@ class NTCPModelBase():
         elif "Tinnitus_G2_late" in self.model_name:
             self.impl_fn = NTCP__Tinnitus_G2_late
       
-        def define_side(self,vRBE_model, dfi_dvh,parameterName):
-            """
-            Resolve which structure (ROI) to use when a model applies to a
-            laterality-specific OAR (e.g. "Cochlea ipsi" vs "Cochlea contra")
-            and the metrics DataFrame has more than one ROI matching
-            ``self.OAR_name``.
+    def define_side(self,vRBE_model, dfi_dvh,parameterName):
+        """
+        Resolve which structure (ROI) to use when a model applies to a
+        laterality-specific OAR (e.g. "Cochlea ipsi" vs "Cochlea contra")
+        and the metrics DataFrame has more than one ROI matching
+        ``self.OAR_name``.
+
+        Selection is geometry-based when possible: the candidate ROI
+        whose center of mass is closest to the CTV's center of mass is
+        "ipsi", the farthest is "contra" (see
+        ``_define_side_by_geometry``/``get_roi_center_of_mass``). If
+        center-of-mass data isn't available for the CTV or for every
+        candidate ROI, this falls back to the previous dose-value
+        heuristic (candidate with the highest dose = ipsi, lowest =
+        contra).
+
+        Parameters
+        ----------
+        vRBE_model : str
+            Dose-type/RBE-model label prefix used in the metrics column
+            names (e.g. "Phys", "RBE1.1", "mcnamara").
+        dfi_dvh : pandas.DataFrame
+            The patient's per-structure metrics table
+            (``AnalysisResults.metrics_df``).
+        parameterName : str
+            Metric column-name suffix to compare across candidate ROIs.
+
+        Returns
+        -------
+        str or None
+            The chosen ``ROI_Name`` value, or None if no ROI matches.
+        """
+        rois = {}
+        for s in dfi_dvh["ROI_Name"]:
+            if (self.OAR_name.lower() in s.lower()) or (s.lower() in self.OAR_name.lower()):
+                val = dfi_dvh[vRBE_model + '_' + parameterName][dfi_dvh["ROI_Name"] == s]
+                rois[s] = val.values[0]
     
-            Selection is geometry-based when possible: the candidate ROI
-            whose center of mass is closest to the CTV's center of mass is
-            "ipsi", the farthest is "contra" (see
-            ``_define_side_by_geometry``/``get_roi_center_of_mass``). If
-            center-of-mass data isn't available for the CTV or for every
-            candidate ROI, this falls back to the previous dose-value
-            heuristic (candidate with the highest dose = ipsi, lowest =
-            contra).
-    
-            Parameters
-            ----------
-            vRBE_model : str
-                Dose-type/RBE-model label prefix used in the metrics column
-                names (e.g. "Phys", "RBE1.1", "mcnamara").
-            dfi_dvh : pandas.DataFrame
-                The patient's per-structure metrics table
-                (``AnalysisResults.metrics_df``).
-            parameterName : str
-                Metric column-name suffix to compare across candidate ROIs.
-    
-            Returns
-            -------
-            str or None
-                The chosen ``ROI_Name`` value, or None if no ROI matches.
-            """
-            rois = {}
-            for s in dfi_dvh["ROI_Name"]:
-                if self.OAR_name.lower() in s.lower():
-                    val = dfi_dvh[vRBE_model + '_' + parameterName][dfi_dvh["ROI_Name"] == s]
-                    rois[s] = val.values[0]
-        
-            # If only one (or zero) matching ROI, no side selection needed
-            if len(rois) <= 1:
-                return next(iter(rois), None)
-    
-            # Only apply ipsi/contra logic if the model name signals it
-            if self.side not in ("ipsi", "contra"):
-                # Multiple ROIs but no side info in model name — fall back to first match
-                return next(iter(rois))
-    
-            # --- Prefer geometry-based (COM-distance-to-CTV) selection ---
-            geom_choice = self._define_side_by_geometry(dfi_dvh, list(rois.keys()))
-            if geom_choice is not None:
-                return geom_choice
-    
-            # --- Fallback: dose-value heuristic ---
-            if self.side == "ipsi" :
-                return max(rois, key=lambda k: rois[k])
-            else:
-                return min(rois, key=lambda k: rois[k])
+        # If only one (or zero) matching ROI, no side selection needed
+        if len(rois) <= 1:
+            return next(iter(rois), None)
+
+        # Only apply ipsi/contra logic if the model name signals it
+        if self.side not in ("ipsi", "contra"):
+            # Multiple ROIs but no side info in model name — fall back to first match
+            return next(iter(rois))
+
+        # --- Prefer geometry-based (COM-distance-to-CTV) selection ---
+        geom_choice = self._define_side_by_geometry(dfi_dvh, list(rois.keys()))
+        if geom_choice is not None:
+            if self.not_printed:
+                print(f"{geom_choice} chosen as {self.side} ROI for {self.model_name} based on geometry")
+                self.not_printed = False
+            return geom_choice
+
+        # --- Fallback: dose-value heuristic ---
+        if self.side == "ipsi" :
+            
+            print(f"{max(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {vRBE_model}")
+            return max(rois, key=lambda k: rois[k])
+        else:
+            
+            print(f"{min(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {vRBE_model}")
+            return min(rois, key=lambda k: rois[k])
 
     def _define_side_by_geometry(self, dfi_dvh, candidate_rois):
         """
@@ -326,6 +334,9 @@ class NTCPModelBase():
             for s in dfi_dvh["ROI_Name"]:
                 if s.strip().lower() == self.ctv_name.strip().lower():
                     return s
+            if self.not_printed:
+                print(f"{self.ctv_name} is not available for for Ipsi/Contra definition")
+                self.not_printed = False
             return None
         for s in dfi_dvh["ROI_Name"]:
             if "ctv" in s.lower():
@@ -346,7 +357,7 @@ class NTCPModelBase():
             f"roi_name override '{roi_name}' not found in metrics_df['ROI_Name']."
         )
         
-    def compute_x(self,vRBE_model,dfi_dvh):
+    def compute_x(self,vRBE_model,dfi_dvh,roi):
         """
         Build the covariate vector ``x`` this model's ``impl_fn`` expects,
         by pulling ``self.parameterNames`` columns for the matched ROI(s)
@@ -358,7 +369,8 @@ class NTCPModelBase():
             Dose-type/RBE-model label prefix (see ``define_side``).
         dfi_dvh : pandas.DataFrame
             Patient metrics table (``AnalysisResults.metrics_df``).
-
+        roi : str
+            ROI name defined on (``compute_NTCP``).
         Returns
         -------
         list of float
@@ -367,18 +379,10 @@ class NTCPModelBase():
             not be found.
         """
         x = []
+        
+                           
         for i in range(0,self.numberOfVariables):
             try:
-                if self.roi_name_override:
-                    # Explicit user choice — bypass OAR/side matching entirely.
-                    roi = self._match_roi_name(dfi_dvh, self.roi_name_override)
-                elif self.side:
-                    roi = self.define_side(vRBE_model,dfi_dvh,self.parameterNames[i])
-                else:
-                    roi = None
-                    for s in dfi_dvh["ROI_Name"]:
-                        if self.OAR_name.lower() in s.lower():
-                            roi = s
                 potential_x = [dfi_dvh[vRBE_model+'_'+self.parameterNames[i]][dfi_dvh["ROI_Name"]==roi]]
                 x.append(potential_x[0].values[0])
             except:
@@ -388,7 +392,8 @@ class NTCPModelBase():
     def compute_NTCP(self, vRBE_model,dfi_dvh):
         """
         Compute this model's NTCP for one patient and one dose type.
-
+        Define ipsi/contra first based on COM, mean dose as fallback
+        
         Parameters
         ----------
         vRBE_model : str
@@ -402,7 +407,18 @@ class NTCPModelBase():
             NTCP in percent (0-100), rounded to 4 decimals. Returns
             ``None`` if any required covariate is missing/NaN.
         """
-        x = self.compute_x(vRBE_model,dfi_dvh)
+           
+        if self.roi_name_override:
+            # Explicit user choice — bypass OAR/side matching entirely.
+            roi = self._match_roi_name(dfi_dvh, self.roi_name_override)
+        elif self.side:
+            roi = self.define_side(vRBE_model,dfi_dvh,"Dmean")
+        else:
+            roi = None
+            for s in dfi_dvh["ROI_Name"]:
+                if self.OAR_name.lower() in s.lower():
+                    roi = s
+        x = self.compute_x(vRBE_model,dfi_dvh,roi)
         if not np.isnan(x).any():
             return np.round(self.impl_fn(x)*100,4)
             
