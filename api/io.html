@@ -443,6 +443,33 @@ Contour z-values are matched to the nearest z in z_positions.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="PyPlanAnalysis.io.get_roi_center_of_mass">
+<span class="sig-name descname"><span class="pre">get_roi_center_of_mass</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">struct_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtstruct_ds</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#get_roi_center_of_mass"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.get_roi_center_of_mass" title="Link to this definition">¶</a></dt>
+<dd><p>Compute the 3-D center of mass (mm, in the RT Struct’s patient
+coordinate system) of a structure directly from its contour
+polygons — no dose/CT grid required.</p>
+<p>Each contour (one per slice) contributes its own 2-D polygon
+centroid, weighted by that contour’s area, so slices with more
+cross-sectional area count more towards the overall COM volume-weighted approximation without needing a full
+3-D mask.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>struct_name</strong> (<em>str</em>) – Structure name as it appears in the RT Struct.</p></li>
+<li><p><strong>rtstruct_ds</strong> (<em>pydicom Dataset</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>np.ndarray, shape (3,), or None</em> – <code class="docutils literal notranslate"><span class="pre">[x,</span> <span class="pre">y,</span> <span class="pre">z]</span></code> center of mass in mm. Returns <code class="docutils literal notranslate"><span class="pre">None</span></code> if no
+usable contour data is available for this structure.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="PyPlanAnalysis.io.contour_area_signed">
 <span class="sig-name descname"><span class="pre">contour_area_signed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#contour_area_signed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.contour_area_signed" title="Link to this definition">¶</a></dt>
 <dd><p>Signed polygon area via the shoelace formula.</p>
@@ -641,6 +668,7 @@ supersampling (supersample² sub-points per voxel).</p>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.get_grid_geometry"><code class="docutils literal notranslate"><span class="pre">get_grid_geometry()</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.get_all_structure_names"><code class="docutils literal notranslate"><span class="pre">get_all_structure_names()</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.get_structure_mask_on_grid"><code class="docutils literal notranslate"><span class="pre">get_structure_mask_on_grid()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.io.get_roi_center_of_mass"><code class="docutils literal notranslate"><span class="pre">get_roi_center_of_mass()</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.contour_area_signed"><code class="docutils literal notranslate"><span class="pre">contour_area_signed()</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.smooth_contour"><code class="docutils literal notranslate"><span class="pre">smooth_contour()</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.rasterize_supersampled"><code class="docutils literal notranslate"><span class="pre">rasterize_supersampled()</span></code></a></li>

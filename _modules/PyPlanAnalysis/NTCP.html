@@ -282,12 +282,30 @@
 <span class="sd">        column of the bundled ``NTCPModels_params.xlsx`` workbook).</span>
 <span class="sd">        Default: all models listed below.</span>
 
+<span class="sd">    roi_overrides : dict</span>
+<span class="sd">        Optional ``{model_name: roi_name}`` mapping. When a model name</span>
+<span class="sd">        is present here, its exact ``roi_name`` (must match a value in</span>
+<span class="sd">        ``metrics_df[&quot;ROI_Name&quot;]``) is used directly instead of the</span>
+<span class="sd">        ``OAR`` substring match from the parameter workbook — lets you</span>
+<span class="sd">        point a model at a specific contoured ROI on a per-patient</span>
+<span class="sd">        basis, even if it doesn&#39;t match the workbook&#39;s OAR column.</span>
+<span class="sd">        Default: empty (use the workbook&#39;s OAR-based matching for</span>
+<span class="sd">        every model).</span>
+<span class="sd">    ctv_name : str or None</span>
+<span class="sd">        Optional exact ``ROI_Name`` to use as &quot;the CTV&quot; reference for</span>
+<span class="sd">        geometry-based ipsi/contra selection (see</span>
+<span class="sd">        ``NTCPModelBase.define_side``). Default: None, which falls</span>
+<span class="sd">        back to the first ROI (in table order) whose name contains</span>
+<span class="sd">        &quot;CTV&quot; (case-insensitive).</span>
+
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
 <span class="sd">    Each model name maps to one ``NTCP__*`` implementation function in</span>
 <span class="sd">    this module (brain/head-and-neck late- and acute-toxicity endpoints</span>
 <span class="sd">    from Dutz, De Marzi, Burman, Gondi, Kong, Lee, Bender and Batth).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">roi_overrides</span> <span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">ctv_name</span>      <span class="p">:</span> <span class="nb">str</span>  <span class="o">=</span> <span class="kc">None</span>
     <span class="n">models</span>    <span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:[</span><span class="s1">&#39;Alopecia_G1_12m__1&#39;</span><span class="p">,</span>
         <span class="s1">&#39;Alopecia_G1_12m__2&#39;</span><span class="p">,</span>
         <span class="s1">&#39;Alopecia_G1_24m__1&#39;</span><span class="p">,</span>
@@ -343,6 +361,15 @@
 <span class="sd">        Path to the NTCP parameter workbook (``.xlsx``). Default: None,</span>
 <span class="sd">        which resolves to the workbook bundled with the package via</span>
 <span class="sd">        ``default_ntcp_params_path()``.</span>
+<span class="sd">    roi_name : str, optional</span>
+<span class="sd">        Exact ``ROI_Name`` to use for this model, bypassing the</span>
+<span class="sd">        workbook&#39;s ``OAR`` substring match entirely. Must match a</span>
+<span class="sd">        value in ``metrics_df[&quot;ROI_Name&quot;]`` (case-insensitive exact</span>
+<span class="sd">        match). Default: None (use OAR-based matching).</span>
+<span class="sd">    ctv_name : str, optional</span>
+<span class="sd">        Exact ``ROI_Name`` to treat as &quot;the CTV&quot; for geometry-based</span>
+<span class="sd">        ipsi/contra selection. Default: None, which falls back to the</span>
+<span class="sd">        first ROI (in table order) whose name contains &quot;CTV&quot;.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -358,14 +385,18 @@
 <span class="sd">    impl_fn : callable</span>
 <span class="sd">        The ``NTCP__*`` function implementing this model&#39;s formula.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">,</span> <span class="n">df_models_path</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">,</span> <span class="n">df_models_path</span><span class="p">,</span> <span class="n">roi_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ctv_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">model_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">roi_name_override</span> <span class="o">=</span> <span class="n">roi_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctv_name</span> <span class="o">=</span> <span class="n">ctv_name</span>
         <span class="k">if</span> <span class="n">df_models_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">df_models_path</span> <span class="o">=</span> <span class="n">default_ntcp_params_path</span><span class="p">()</span>
+
         <span class="n">df_models</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="n">df_models_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">numberOfVariables</span> <span class="o">=</span> <span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;numberOfVariables&quot;</span><span class="p">][</span><span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">]</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span> <span class="o">=</span>  <span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;OAR&quot;</span><span class="p">][</span><span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">]</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span> <span class="o">=</span> <span class="kc">True</span>
         
         <span class="k">if</span> <span class="s2">&quot;ipsi&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">=</span> <span class="s2">&quot;ipsi&quot;</span>
@@ -376,7 +407,7 @@
             
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">numberOfVariables</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;parameterName_&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)][</span><span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">]</span><span class="o">==</span><span class="n">model_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> 
-        
+
         <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">npNan</span> <span class="c1">#eventuell auskommentieren</span>
         <span class="k">if</span> <span class="s2">&quot;Alopecia_G1_12m__1&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Alopecia_G1_12m__1</span> 
@@ -438,6 +469,15 @@
 <span class="sd">        and the metrics DataFrame has more than one ROI matching</span>
 <span class="sd">        ``self.OAR_name``.</span>
 
+<span class="sd">        Selection is geometry-based when possible: the candidate ROI</span>
+<span class="sd">        whose center of mass is closest to the CTV&#39;s center of mass is</span>
+<span class="sd">        &quot;ipsi&quot;, the farthest is &quot;contra&quot; (see</span>
+<span class="sd">        ``_define_side_by_geometry``/``get_roi_center_of_mass``). If</span>
+<span class="sd">        center-of-mass data isn&#39;t available for the CTV or for every</span>
+<span class="sd">        candidate ROI, this falls back to the previous dose-value</span>
+<span class="sd">        heuristic (candidate with the highest dose = ipsi, lowest =</span>
+<span class="sd">        contra).</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        vRBE_model : str</span>
@@ -456,28 +496,119 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">rois</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span> <span class="ow">or</span> <span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
                 <span class="n">val</span> <span class="o">=</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="n">vRBE_model</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="n">parameterName</span><span class="p">][</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">]</span>
                 <span class="n">rois</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     
         <span class="c1"># If only one (or zero) matching ROI, no side selection needed</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rois</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">rois</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
-    
-        <span class="c1"># Only apply ipsi/contra logic if the model name signals it</span>
-        
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">==</span> <span class="s2">&quot;ipsi&quot;</span> <span class="p">:</span>
-            <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">==</span> <span class="s2">&quot;contra&quot;</span> <span class="p">:</span>
-            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Multiple ROIs but no side info in model name — fall back to first match</span>
-            <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">rois</span><span class="p">))</span></div>
 
+        <span class="c1"># Only apply ipsi/contra logic if the model name signals it</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;ipsi&quot;</span><span class="p">,</span> <span class="s2">&quot;contra&quot;</span><span class="p">):</span>
+            <span class="c1"># Multiple ROIs but no side info in model name — fall back to first match</span>
+            <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">rois</span><span class="p">))</span>
+
+        <span class="c1"># --- Prefer geometry-based (COM-distance-to-CTV) selection ---</span>
+        <span class="n">geom_choice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_define_side_by_geometry</span><span class="p">(</span><span class="n">dfi_dvh</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">rois</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">if</span> <span class="n">geom_choice</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">geom_choice</span><span class="si">}</span><span class="s2"> chosen as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="si">}</span><span class="s2"> ROI for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> based on geometry&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="n">geom_choice</span>
+
+        <span class="c1"># --- Fallback: dose-value heuristic ---</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">==</span> <span class="s2">&quot;ipsi&quot;</span> <span class="p">:</span>
+            
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">max</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span><span class="w"> </span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="si">}</span><span class="s2"> chosen as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="si">}</span><span class="s2"> ROI for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> based on mean dose for </span><span class="si">{</span><span class="n">vRBE_model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">min</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span><span class="w"> </span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="si">}</span><span class="s2"> chosen as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="si">}</span><span class="s2"> ROI for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> based on mean dose for </span><span class="si">{</span><span class="n">vRBE_model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_define_side_by_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dfi_dvh</span><span class="p">,</span> <span class="n">candidate_rois</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Assign ipsi/contra by comparing each candidate ROI&#39;s center of</span>
+<span class="sd">        mass (``COM_x``/``COM_y``/``COM_z`` columns, populated by</span>
+<span class="sd">        ``PatientPlan.analyse()``) to the CTV&#39;s center of mass: the</span>
+<span class="sd">        candidate closest to the CTV is &quot;ipsi&quot;, the farthest is</span>
+<span class="sd">        &quot;contra&quot;.</span>
+
+<span class="sd">        Returns None (triggering the dose-based fallback in</span>
+<span class="sd">        ``define_side``) if the COM columns are missing, no CTV</span>
+<span class="sd">        reference can be resolved, or COM data is missing for the CTV</span>
+<span class="sd">        or any candidate ROI.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">{</span><span class="s2">&quot;COM_x&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_y&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_z&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">dfi_dvh</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">ctv_row_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_ctv_name</span><span class="p">(</span><span class="n">dfi_dvh</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ctv_row_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">ctv_com</span> <span class="o">=</span> <span class="n">dfi_dvh</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ctv_row_name</span><span class="p">,</span>
+                              <span class="p">[</span><span class="s2">&quot;COM_x&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_y&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_z&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ctv_com</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">ctv_com</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">ctv_com</span> <span class="o">=</span> <span class="n">ctv_com</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">distances</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">roi</span> <span class="ow">in</span> <span class="n">candidate_rois</span><span class="p">:</span>
+            <span class="n">com</span> <span class="o">=</span> <span class="n">dfi_dvh</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">roi</span><span class="p">,</span>
+                              <span class="p">[</span><span class="s2">&quot;COM_x&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_y&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_z&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">com</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">com</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="k">continue</span>
+            <span class="n">distances</span><span class="p">[</span><span class="n">roi</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">com</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">ctv_com</span><span class="p">))</span>
+
+        <span class="c1"># Require COM data for every candidate — a partial comparison</span>
+        <span class="c1"># isn&#39;t a safe basis for ipsi/contra assignment.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">distances</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidate_rois</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">==</span> <span class="s2">&quot;ipsi&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">distances</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">distances</span><span class="o">.</span><span class="n">get</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">distances</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">distances</span><span class="o">.</span><span class="n">get</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_ctv_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dfi_dvh</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Resolve which ROI represents the CTV for geometry-based side</span>
+<span class="sd">        selection: ``self.ctv_name`` (exact match) if set, otherwise</span>
+<span class="sd">        the first ROI (in table order) whose name contains &quot;CTV&quot;</span>
+<span class="sd">        (case-insensitive).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctv_name</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctv_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                    <span class="k">return</span> <span class="n">s</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ctv_name</span><span class="si">}</span><span class="s2"> is not available for for Ipsi/Contra definition&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="s2">&quot;ctv&quot;</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">s</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_match_roi_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dfi_dvh</span><span class="p">,</span> <span class="n">roi_name</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Resolve a user-supplied ``roi_name`` override to the exact</span>
+<span class="sd">        ``ROI_Name`` value present in ``dfi_dvh`` (case-insensitive</span>
+<span class="sd">        exact match — this is a specific user choice, not a fuzzy</span>
+<span class="sd">        substring search).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="n">roi_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">s</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;roi_name override &#39;</span><span class="si">{</span><span class="n">roi_name</span><span class="si">}</span><span class="s2">&#39; not found in metrics_df[&#39;ROI_Name&#39;].&quot;</span>
+        <span class="p">)</span>
         
 <div class="viewcode-block" id="NTCPModelBase.compute_x">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCPModelBase.compute_x">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">compute_x</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_x</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">,</span><span class="n">roi</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Build the covariate vector ``x`` this model&#39;s ``impl_fn`` expects,</span>
 <span class="sd">        by pulling ``self.parameterNames`` columns for the matched ROI(s)</span>
@@ -489,7 +620,8 @@
 <span class="sd">            Dose-type/RBE-model label prefix (see ``define_side``).</span>
 <span class="sd">        dfi_dvh : pandas.DataFrame</span>
 <span class="sd">            Patient metrics table (``AnalysisResults.metrics_df``).</span>
-
+<span class="sd">        roi : str</span>
+<span class="sd">            ROI name defined on (``compute_NTCP``).</span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        list of float</span>
@@ -498,19 +630,12 @@
 <span class="sd">            not be found.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">x</span> <span class="o">=</span> <span class="p">[]</span>
+        
+                           
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">numberOfVariables</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="p">:</span>
-                    <span class="n">roi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">define_side</span><span class="p">(</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-                    <span class="n">potential_x</span> <span class="o">=</span> <span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="n">vRBE_model</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span><span class="o">==</span><span class="n">roi</span><span class="p">]]</span>
-                    <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">potential_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> 
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">roi</span> <span class="o">=</span> <span class="kc">None</span>
-                    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
-                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
-                            <span class="n">roi</span> <span class="o">=</span> <span class="n">s</span>
-                    <span class="n">potential_x</span> <span class="o">=</span> <span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="n">vRBE_model</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span><span class="o">==</span><span class="n">roi</span><span class="p">]]</span>
-                    <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">potential_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> 
+                <span class="n">potential_x</span> <span class="o">=</span> <span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="n">vRBE_model</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span><span class="o">==</span><span class="n">roi</span><span class="p">]]</span>
+                <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">potential_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
             <span class="k">except</span><span class="p">:</span>
                 <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span></div>
@@ -521,7 +646,8 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_NTCP</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute this model&#39;s NTCP for one patient and one dose type.</span>
-
+<span class="sd">        Define ipsi/contra first based on COM, mean dose as fallback</span>
+<span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        vRBE_model : str</span>
@@ -535,7 +661,18 @@
 <span class="sd">            NTCP in percent (0-100), rounded to 4 decimals. Returns</span>
 <span class="sd">            ``None`` if any required covariate is missing/NaN.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_x</span><span class="p">(</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">)</span>
+           
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">roi_name_override</span><span class="p">:</span>
+            <span class="c1"># Explicit user choice — bypass OAR/side matching entirely.</span>
+            <span class="n">roi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_match_roi_name</span><span class="p">(</span><span class="n">dfi_dvh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roi_name_override</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="p">:</span>
+            <span class="n">roi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">define_side</span><span class="p">(</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">,</span><span class="s2">&quot;Dmean&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">roi</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                    <span class="n">roi</span> <span class="o">=</span> <span class="n">s</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_x</span><span class="p">(</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">,</span><span class="n">roi</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">*</span><span class="mi">100</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span></div>
 </div>
@@ -936,8 +1073,7 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    float</span>
-<span class="sd">        NTCP probability in [0, 1]  .</span>
+<span class="sd">    float  NTCP probability in [0, 1]  .</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
@@ -969,8 +1105,7 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    float</span>
-<span class="sd">        NTCP probability in [0, 1]  .</span>
+<span class="sd">    float NTCP probability in [0, 1]  .</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">beta_2</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>  </div>
 
@@ -1003,8 +1138,7 @@
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    float</span>
-<span class="sd">        NTCP probability in [0, 1]  .</span>
+<span class="sd">    float NTCP probability in [0, 1]  .</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">beta_2</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span></div>
 

@@ -172,7 +172,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
       </label>
     </div>
@@ -237,16 +237,301 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
           </label>
         </div>
         <article role="main" id="furo-main-content">
           <section id="pyplananalysis-plan">
 <h1><code class="docutils literal notranslate"><span class="pre">PyPlanAnalysis.plan</span></code><a class="headerlink" href="#pyplananalysis-plan" title="Link to this heading">¶</a></h1>
-<p>Main user-facing API: <code class="xref py py-class docutils literal notranslate"><span class="pre">PatientPlan</span></code> loads DICOM
-data and runs the analysis; <code class="xref py py-class docutils literal notranslate"><span class="pre">AnalysisResults</span></code>
+<p>Main user-facing API: <a class="reference internal" href="#PyPlanAnalysis.plan.PatientPlan" title="PyPlanAnalysis.plan.PatientPlan"><code class="xref py py-class docutils literal notranslate"><span class="pre">PatientPlan</span></code></a> loads DICOM
+data and runs the analysis; <a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults" title="PyPlanAnalysis.plan.AnalysisResults"><code class="xref py py-class docutils literal notranslate"><span class="pre">AnalysisResults</span></code></a>
 holds the metrics, plots, and NTCP outputs and exports them.</p>
+<section id="module-PyPlanAnalysis.plan">
+<span id="id1"></span><h2>PyPlanAnalysis.plan<a class="headerlink" href="#module-PyPlanAnalysis.plan" title="Link to this heading">¶</a></h2>
+<p>Main user-facing API: PatientPlan (loads DICOM data and runs the
+analysis) and AnalysisResults (metrics, plots, NTCP, and exports).
+See the project README for usage examples.</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.PatientPlan">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">PatientPlan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patient_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plan_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dose_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">let_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtstruct</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">CT_folder_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_fractions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#PatientPlan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.PatientPlan" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Represents a single patient’s proton therapy plan.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>patient_id</strong> (<em>str</em>) – Identifier used in output filenames and CSV column.</p></li>
+<li><p><strong>dose_file</strong> (<em>str</em><em> or </em><em>Path</em>) – DICOM RT Dose file containing physical dose [Gy].</p></li>
+<li><p><strong>let_file</strong> (<em>str</em><em> or </em><em>Path</em>) – DICOM RT Dose file containing LETd [keV/µm] stored as dose grid.</p></li>
+<li><p><strong>rtstruct</strong> (<em>str</em><em> or </em><em>Path</em>) – DICOM RT Struct file.</p></li>
+<li><p><strong>CT</strong> (<em>str</em><em> or </em><em>Path</em>) – folder of DICOM CT files</p></li>
+<li><p><strong>method</strong> (<em>Class</em>)</p></li>
+<li><p><strong>------------</strong></p></li>
+<li><p><strong>PatientPlan.from_folder</strong><strong>(</strong><strong>folder</strong> – Auto-discover DICOM files from a folder.</p></li>
+<li><p><strong>patient_id=None</strong><strong>)</strong> – Auto-discover DICOM files from a folder.</p></li>
+<li><p><strong>plan_file</strong> (<em>str</em><em> | </em><em>Path</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>CT_folder_path</strong> (<em>str</em><em> | </em><em>Path</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>n_fractions</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.PatientPlan.from_folder">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_folder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_fractions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#PatientPlan.from_folder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.PatientPlan.from_folder" title="Link to this definition">¶</a></dt>
+<dd><p>Create a PatientPlan by auto-discovering DICOM files in folder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>folder</strong> (<em>path containing .dcm files</em>)</p></li>
+<li><p><strong>patient_id</strong> (<em>if None</em><em>, </em><em>uses the folder name</em>)</p></li>
+<li><p><strong>n_fractions</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#PyPlanAnalysis.plan.PatientPlan" title="PyPlanAnalysis.plan.PatientPlan"><code class="xref py py-class docutils literal notranslate"><span class="pre">PatientPlan</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.PatientPlan.load">
+<span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#PatientPlan.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.PatientPlan.load" title="Link to this definition">¶</a></dt>
+<dd><p>Load and cache all DICOM data. Called automatically by analyse().</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.PatientPlan.structure_names">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">structure_names</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span></span><a class="headerlink" href="#PyPlanAnalysis.plan.PatientPlan.structure_names" title="Link to this definition">¶</a></dt>
+<dd><p>List of all structure names in the RT Struct.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.PatientPlan.voxel_volume_cc">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">voxel_volume_cc</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></span><a class="headerlink" href="#PyPlanAnalysis.plan.PatientPlan.voxel_volume_cc" title="Link to this definition">¶</a></dt>
+<dd><p>Volume of one dose voxel in cc.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.PatientPlan.analyse">
+<span class="sig-name descname"><span class="pre">analyse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">structures</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rbe_cfg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric_cfg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radiobio_cfg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resample_on_CT</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resample_on_custom_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_fractional</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">supersample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#PatientPlan.analyse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.PatientPlan.analyse" title="Link to this definition">¶</a></dt>
+<dd><p>Run the full analysis pipeline for this patient.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>structures</strong> (<em>list</em><em> of </em><em>structure name strings</em><em>, or </em><em>None</em><em> (</em><em>= all</em><em>)</em>)</p></li>
+<li><p><strong>rbe_cfg</strong> (<a class="reference internal" href="rbe.html#PyPlanAnalysis.rbe.RBEConfig" title="PyPlanAnalysis.rbe.RBEConfig"><em>RBEConfig</em></a><em>  (</em><em>default: all three models</em><em>, </em><em>RBE=1.1</em><em>)</em>)</p></li>
+<li><p><strong>metric_cfg</strong> (<a class="reference internal" href="metrics.html#PyPlanAnalysis.metrics.MetricConfig" title="PyPlanAnalysis.metrics.MetricConfig"><em>MetricConfig</em></a><em>  (</em><em>default values</em><em>)</em>)</p></li>
+<li><p><strong>radiobio_cfg</strong> (<a class="reference internal" href="metrics.html#PyPlanAnalysis.metrics.RadiobiologyConfig" title="PyPlanAnalysis.metrics.RadiobiologyConfig"><em>RadiobiologyConfig</em></a><em>  (</em><em>default per-tissue α/β and gEUD-a</em><em>)</em>)</p></li>
+<li><p><strong>resample</strong> (<em>if True</em><em>, </em><em>interpolate dose values to the new spacing defined in MetricConfig</em>)</p></li>
+<li><p><strong>use_fractional</strong> (<em>if True</em><em>, </em><em>use fractional voxel membership mask instead</em>) – of binary mask. More accurate for small structures.
+Each voxel is weighted by the fraction of its volume
+inside the contour. Default: False.</p></li>
+<li><p><strong>supersample</strong> (<em>supersampling factor for fractional mask</em><em> (</em><em>N×N sub-points</em>) – per voxel). Only used when use_fractional=True.
+Default: 4 (16 sub-points per voxel, ~6% accuracy).</p></li>
+<li><p><strong>resample_on_CT</strong> (<em>bool</em>)</p></li>
+<li><p><strong>resample_on_custom_grid</strong> (<em>bool</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults" title="PyPlanAnalysis.plan.AnalysisResults"><code class="xref py py-class docutils literal notranslate"><span class="pre">AnalysisResults</span></code></a></span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>AnalysisResults</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">AnalysisResults</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">patient_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metrics_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dvh_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lvh_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dlvh_data_diff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dlvh_data_cum</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#AnalysisResults"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Container for all outputs from PatientPlan.analyse().</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>patient_id</strong> (<em>str</em>)</p></li>
+<li><p><strong>metrics_df</strong> (<em>DataFrame</em>)</p></li>
+<li><p><strong>dvh_data</strong> (<em>dict</em>)</p></li>
+<li><p><strong>lvh_data</strong> (<em>dict</em>)</p></li>
+<li><p><strong>dlvh_data_diff</strong> (<em>dict</em>)</p></li>
+<li><p><strong>dlvh_data_cum</strong> (<em>dict</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.patient_id">
+<span class="sig-name descname"><span class="pre">patient_id</span></span><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.patient_id" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.metrics_df">
+<span class="sig-name descname"><span class="pre">metrics_df</span></span><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.metrics_df" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.DataFrame  – all DVH/LVH metrics, one row per structure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.dvh_data">
+<span class="sig-name descname"><span class="pre">dvh_data</span></span><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.dvh_data" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict  {struct: {dose_type: (edges, cum)}} e.g. # {“CTV”: {“Physical”: (edges, cum), “RBE×1.1”: (edges, cum), …}, “Brainstem”: {“Physical”: (edges, cum), …},</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.lvh_data">
+<span class="sig-name descname"><span class="pre">lvh_data</span></span><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.lvh_data" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict  {struct: (edges, cum)}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.dlvh_data">
+<span class="sig-name descname"><span class="pre">dlvh_data</span></span><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.dlvh_data" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict  {struct: (H, dose_edges, let_edges)}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.CalcNTCP">
+<span class="sig-name descname"><span class="pre">CalcNTCP</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">NTCPConfig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_models_xls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#AnalysisResults.CalcNTCP"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.CalcNTCP" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>NTCPConfig</strong> (<a class="reference internal" href="ntcp.html#PyPlanAnalysis.NTCP.NTCPConfig" title="PyPlanAnalysis.NTCP.NTCPConfig"><em>NTCPConfig</em></a>)</p></li>
+<li><p><strong>path_models_xls</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.to_csv">
+<span class="sig-name descname"><span class="pre">to_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#AnalysisResults.to_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.to_csv" title="Link to this definition">¶</a></dt>
+<dd><p>Save metrics to CSV.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>output path. Default: &quot;&lt;patient_id&gt;/dvh_metrics.csv&quot;</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.to_excel">
+<span class="sig-name descname"><span class="pre">to_excel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#AnalysisResults.to_excel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.to_excel" title="Link to this definition">¶</a></dt>
+<dd><p>Save metrics to Excel (.xlsx).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>output path. Default: &quot;&lt;patient_id&gt;/dvh_metrics.xlsx&quot;</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.plot_dvh">
+<span class="sig-name descname"><span class="pre">plot_dvh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">350</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#AnalysisResults.plot_dvh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.plot_dvh" title="Link to this definition">¶</a></dt>
+<dd><p>Generate DVH curve figures.</p>
+<p>Creates one figure per dose type (Physical, RBE×1.1, each model)
+showing all structures, PLUS one per-structure comparison figure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>save</strong> (<em>path for output PDF. Default: &quot;&lt;patient_id&gt;/dvh_curves.pdf&quot;</em>)</p></li>
+<li><p><strong>dpi</strong> (<em>figure DPI</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>list of matplotlib Figures</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.plot_lvh">
+<span class="sig-name descname"><span class="pre">plot_lvh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">150</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#AnalysisResults.plot_lvh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.plot_lvh" title="Link to this definition">¶</a></dt>
+<dd><p>Generate LVH curve figure (all structures on one plot).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>save</strong> (<em>path for output PDF. Default: &quot;&lt;patient_id&gt;/lvh_curves.pdf&quot;</em>)</p></li>
+<li><p><strong>dpi</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Figure</span></code></span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>matplotlib Figure</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.plot_dlvh">
+<span class="sig-name descname"><span class="pre">plot_dlvh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">150</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#AnalysisResults.plot_dlvh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.plot_dlvh" title="Link to this definition">¶</a></dt>
+<dd><p>Generate 2-D DLVH figures – one PNG per structure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>save</strong> (<em>output directory. Default: &quot;&lt;patient_id&gt;/dlvh_2d/&quot;</em>)</p></li>
+<li><p><strong>dpi</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>list of (structure_name, Path) tuples</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyPlanAnalysis.plan.AnalysisResults.save_all">
+<span class="sig-name descname"><span class="pre">save_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'dvh_metrics.csv'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">excel_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'dvh_metrics.xlsx'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dpi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">150</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#AnalysisResults.save_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.AnalysisResults.save_all" title="Link to this definition">¶</a></dt>
+<dd><p>Convenience method: save CSV, Excel, DVH PDF, LVH PDF, DLVH PNGs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>output_dir</strong> (<em>base output directory. Default: patient_id/</em>)</p></li>
+<li><p><strong>csv_name</strong> (<em>filename for the CSV output</em>)</p></li>
+<li><p><strong>excel_name</strong> (<em>filename for the Excel output</em>)</p></li>
+<li><p><strong>dpi</strong> (<em>figure DPI for all plots</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 
         </article>
@@ -292,8 +577,50 @@ holds the metrics, plots, and NTCP outputs and exports them.</p>
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">PyPlanAnalysis.plan</span></code></a><ul>
+<li><a class="reference internal" href="#module-PyPlanAnalysis.plan">PyPlanAnalysis.plan</a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.PatientPlan"><code class="docutils literal notranslate"><span class="pre">PatientPlan</span></code></a><ul>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.PatientPlan.from_folder"><code class="docutils literal notranslate"><span class="pre">PatientPlan.from_folder()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.PatientPlan.load"><code class="docutils literal notranslate"><span class="pre">PatientPlan.load()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.PatientPlan.structure_names"><code class="docutils literal notranslate"><span class="pre">PatientPlan.structure_names</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.PatientPlan.voxel_volume_cc"><code class="docutils literal notranslate"><span class="pre">PatientPlan.voxel_volume_cc</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.PatientPlan.analyse"><code class="docutils literal notranslate"><span class="pre">PatientPlan.analyse()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults"><code class="docutils literal notranslate"><span class="pre">AnalysisResults</span></code></a><ul>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.patient_id"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.patient_id</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.metrics_df"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.metrics_df</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.dvh_data"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.dvh_data</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.lvh_data"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.lvh_data</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.dlvh_data"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.dlvh_data</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.CalcNTCP"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.CalcNTCP()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.to_csv"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.to_csv()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.to_excel"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.to_excel()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.plot_dvh"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.plot_dvh()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.plot_lvh"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.plot_lvh()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.plot_dlvh"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.plot_dlvh()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.plan.AnalysisResults.save_all"><code class="docutils literal notranslate"><span class="pre">AnalysisResults.save_all()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>
