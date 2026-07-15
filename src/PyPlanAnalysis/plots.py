@@ -147,7 +147,7 @@ def plot_dlvh_2d(H: np.ndarray,
     #colormap
     n_levels   = 11                              
     boundaries = np.linspace(0, 100, n_levels)  
-    base_cmap  = plt.cm.get_cmap("jet", n_levels - 1)
+    base_cmap  = plt.colormaps["jet"].resampled(n_levels - 1) #plt.cm.get_cmap("jet", n_levels - 1)
     cmap       = mcolors.BoundaryNorm(boundaries, base_cmap.N)
     
     fig, ax = plt.subplots(figsize=(8, 6), dpi=dpi)

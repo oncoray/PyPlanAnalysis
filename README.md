@@ -27,15 +27,16 @@ cd PyPlanAnalysis
 conda env create -f Environment.yml
 conda activate PyPlan_env
 ```
-### For Devs: install in editable format (-e)
-```bash
-
-pip install -e . --no-build-isolation --no-deps
-```
 ### For Users:  
 
 ```bash
 pip install . --no-build-isolation  --no-deps  
+```
+
+### For Devs: install in editable format (-e)
+```bash
+
+pip install -e . --no-build-isolation --no-deps
 ```
 
 ### Alternative: use requirements_conda.txt to setup your own environment
@@ -46,10 +47,23 @@ pip install . --no-build-isolation  --no-deps
 ```
 ---
 
+## Single patient Example
+Run the example code on test data to have an example:
+
+```PowerShell
+cd PyPlanAnalysis
+python -m Examples.single_test_patient
+```
+
+
 ## Quick start
+### Input DICOM files 
 
-### Single patient
-
+#### Auto-discover from a folder
+```python
+plan = PatientPlan.from_folder("data/Patient_01/")
+```
+#### Manual input
 ```python
 from PyPlanAnalysis import PatientPlan, RBEConfig, MetricConfig
 
@@ -59,18 +73,6 @@ plan = PatientPlan(
     let_file   = "RD_LETd.dcm",
     rtstruct   = "RS_structures.dcm",
 )
-
-results = plan.analyse(structures=["CTV", "Brainstem"])
-results.save_all("output/Patient_01/")
-```
-
-### Auto-discover DICOM files from a folder
-
-```python
-plan = PatientPlan.from_folder("data/Patient_01/")
-results = plan.analyse()
-results.to_csv("metrics.csv")
-results.to_excel("metrics.xlsx")
 ```
 
 ### Custom RBE and metric configuration
@@ -78,7 +80,7 @@ results.to_excel("metrics.xlsx")
 ```python
 from PyPlanAnalysis import RBEConfig, MetricConfig, RadiobiologyConfig
 
-rbe_cfg = RBEConfig(models=["mcnamara"], fixed_rbe=1.1)
+rbe_cfg = RBEConfig(models=["mcnamara", "linear"])
 
 metric_cfg = MetricConfig(
     dx = [2, 50, 98],
@@ -87,12 +89,36 @@ metric_cfg = MetricConfig(
 
 radiobio_cfg = RadiobiologyConfig(
     alpha_beta_map     = {"ctv": 10.0, "brainstem": 2.0},
-    alpha_beta_default = 3.0,
+    alpha_beta_default = 2.0,
 )
 
-results = plan.analyse(rbe_cfg=rbe_cfg,
+NTCP_config = NTCPConfig() # uses built-in defaults
+```
+### Run the Analysis
+```
+results = plan.analyse(structures=["CTV", "Brainstem"],
+                       rbe_cfg=rbe_cfg,
                        metric_cfg=metric_cfg,
                        radiobio_cfg=radiobio_cfg)
+```
+
+### Save results 
+```
+results.to_excel("metrics.xlsx")
+#or
+results.save_all("output/Patient_01/")
+
+#save DLVH plots
+results.plot_dlvh(output_dir / "dlvh_2d")
+```
+
+### Compute and save NTCP 
+```
+NTCP_summary = results.CalcNTCP(NTCP_config)
+
+NTCP_summary = pd.DataFrame.from_dict(NTCP_summary)
+save_ntcp = output_dir /  "NTCP_metrics.xlsx"
+NTCP_summary.to_excel(save_ntcp)
 ```
 ---
 

@@ -6,16 +6,16 @@ run, export, and score NTCP. Edit the paths and settings below before
 running.
 """
 
-
-
 from PyPlanAnalysis import PatientPlan, RBEConfig, MetricConfig, RadiobiologyConfig, NTCPConfig
-from Tests import Paths
 import pandas as pd
+from Tests import Paths
 
 # ------------------------------------------------------------------
 # 1. Point to your DICOM files
 # ------------------------------------------------------------------
 Test_folder_name = "DD-0ZKEKUPU"
+
+#set manually your output folder
 data_dir = Paths.TEST_DATA / Test_folder_name / Paths.TEST_DATA_INPUT
 output_dir = Paths.TEST_OUTPUT  / Test_folder_name / Paths.TEST_PA_OUTPUT
 
@@ -110,7 +110,8 @@ results.plot_dlvh(output_dir / "dlvh_2d")
 # Compute NTCP models on matching rois name
 # ------------------------------------------------------------------
 
-NTCP_summary = results.CalcNTCP(NTCP_config,Paths.UTILS / "NTCPModels_params.xlsx")
+NTCP_summary = results.CalcNTCP(NTCP_config)
+
 NTCP_summary = pd.DataFrame.from_dict(NTCP_summary)
 save_ntcp = output_dir /  "NTCP_metrics.xlsx"
 
