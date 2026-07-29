@@ -83,6 +83,7 @@ def _collect_candidates(folder: Path):
         path: Path
         sop_class: Optional[str]
         sop_uid: Optional[str]
+        radiationType: str #"PROTON"
         patient_id: Optional[str]
         ref_struct: Optional[tuple] = None  # (ReferencedSOPClassUID, ReferencedSOPInstanceUID)
     
@@ -148,10 +149,13 @@ def _collect_candidates(folder: Path):
                     getattr(ref, "ReferencedSOPClassUID", None),
                     getattr(ref, "ReferencedSOPInstanceUID", None),
                 )
+            
+            radiationType= getattr(ds, "RadiationType", "").upper()
             rtplans.append(RTPlanCandidate(
                 path=f,
                 sop_class=getattr(ds, "SOPClassUID", None),
-                sop_uid=getattr(ds, "SOPInstanceUID", None),
+                sop_uid=getattr(ds, "SOPInstanceUID", None),                
+                radiationType=radiationType,
                 patient_id=patient_id,
                 ref_struct=ref_struct,
             ))
@@ -201,7 +205,8 @@ def _best_dose(doses_of_kind, plan, fallback_pool, kind_label,
     # if no candidates of this kind AND no fallback candidates, nothing to pick
     if not doses_of_kind and not fallback_pool:
         return None
-
+    
+        
     # --- opt 1: RTPLAN is available and a candidate references it ---
     # this is the strongest possible link: RTDOSE -> RTPLAN -> RTSTRUCT
     if plan is not None and doses_of_kind:
@@ -438,8 +443,8 @@ def find_dicom_files(folder: Path) -> dict:
         "matched RTSTRUCT; proceeding without a confirmed RTPLAN."
         link_warnings.append(msg)
 
-    physical_doses = [d for d in rtdoses if (d.dose_kind == "PHYSICAL" and d.dose_SumType == "PLAN")]
-    effective_doses = [d for d in rtdoses if (d.dose_kind == "EFFECTIVE" and d.dose_SumType == "PLAN")]
+    physical_doses = [d for d in rtdoses if (d.dose_kind == "PHYSICAL" and d.dose_SumType == "PLAN" )]
+    effective_doses = [d for d in rtdoses if (d.dose_kind == "EFFECTIVE" and d.dose_SumType == "PLAN" )]
     let_doses = [d for d in rtdoses if d.dose_kind == "LET"]
     
     frame_of_ref_uid = struct.frame_of_ref_uid if struct is not None else None
@@ -675,7 +680,7 @@ def load_dose_grid(path: Union[str, Path]) -> tuple:
     array : np.ndarray  shape (z, y, x)
     ds    : pydicom Dataset
     """
-    ds    = pydicom.dcmread(str(path))
+    ds    = pydicom.dcmread(str(path), force=True)
     scale = float(ds.DoseGridScaling)
     if not ds.DoseUnits == "GY":
         warnings.warn(f"Dose Units are not correct for: '{path}'.")
@@ -694,7 +699,7 @@ def get_grid_geometry(ds) -> tuple:
     """
     origin = [float(v) for v in ds.ImagePositionPatient]
     pix_sp = [float(v) for v in ds.PixelSpacing]  # [row_spacing=dy, col_spacing=dx]
-    dz = float(ds.SliceThickness)
+    dz = float(ds.SliceThickness) if ds.SliceThickness is not None else pix_sp[0]
   
     # PixelSpacing = [row_spacing, col_spacing] = [dy, dx]
     return origin, [pix_sp[1], pix_sp[0], dz]   # [dx, dy, dz]
