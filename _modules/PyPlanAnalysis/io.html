@@ -321,6 +321,7 @@
         <span class="n">path</span><span class="p">:</span> <span class="n">Path</span>
         <span class="n">sop_class</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
         <span class="n">sop_uid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+        <span class="n">radiationType</span><span class="p">:</span> <span class="nb">str</span> <span class="c1">#&quot;PROTON&quot;</span>
         <span class="n">patient_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
         <span class="n">ref_struct</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># (ReferencedSOPClassUID, ReferencedSOPInstanceUID)</span>
     
@@ -386,10 +387,13 @@
                     <span class="nb">getattr</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="s2">&quot;ReferencedSOPClassUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
                     <span class="nb">getattr</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="s2">&quot;ReferencedSOPInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
                 <span class="p">)</span>
+            
+            <span class="n">radiationType</span><span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;RadiationType&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
             <span class="n">rtplans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">RTPlanCandidate</span><span class="p">(</span>
                 <span class="n">path</span><span class="o">=</span><span class="n">f</span><span class="p">,</span>
                 <span class="n">sop_class</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SOPClassUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                <span class="n">sop_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SOPInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">sop_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SOPInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>                
+                <span class="n">radiationType</span><span class="o">=</span><span class="n">radiationType</span><span class="p">,</span>
                 <span class="n">patient_id</span><span class="o">=</span><span class="n">patient_id</span><span class="p">,</span>
                 <span class="n">ref_struct</span><span class="o">=</span><span class="n">ref_struct</span><span class="p">,</span>
             <span class="p">))</span>
@@ -439,7 +443,8 @@
     <span class="c1"># if no candidates of this kind AND no fallback candidates, nothing to pick</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">doses_of_kind</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">fallback_pool</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
-
+    
+        
     <span class="c1"># --- opt 1: RTPLAN is available and a candidate references it ---</span>
     <span class="c1"># this is the strongest possible link: RTDOSE -&gt; RTPLAN -&gt; RTSTRUCT</span>
     <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">doses_of_kind</span><span class="p">:</span>
@@ -678,8 +683,8 @@
         <span class="s2">&quot;matched RTSTRUCT; proceeding without a confirmed RTPLAN.&quot;</span>
         <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
-    <span class="n">physical_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">&quot;PHYSICAL&quot;</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_SumType</span> <span class="o">==</span> <span class="s2">&quot;PLAN&quot;</span><span class="p">)]</span>
-    <span class="n">effective_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">&quot;EFFECTIVE&quot;</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_SumType</span> <span class="o">==</span> <span class="s2">&quot;PLAN&quot;</span><span class="p">)]</span>
+    <span class="n">physical_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">&quot;PHYSICAL&quot;</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_SumType</span> <span class="o">==</span> <span class="s2">&quot;PLAN&quot;</span> <span class="p">)]</span>
+    <span class="n">effective_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">&quot;EFFECTIVE&quot;</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_SumType</span> <span class="o">==</span> <span class="s2">&quot;PLAN&quot;</span> <span class="p">)]</span>
     <span class="n">let_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">&quot;LET&quot;</span><span class="p">]</span>
     
     <span class="n">frame_of_ref_uid</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">frame_of_ref_uid</span> <span class="k">if</span> <span class="n">struct</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
@@ -927,7 +932,7 @@
 <span class="sd">    array : np.ndarray  shape (z, y, x)</span>
 <span class="sd">    ds    : pydicom Dataset</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">ds</span>    <span class="o">=</span> <span class="n">pydicom</span><span class="o">.</span><span class="n">dcmread</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+    <span class="n">ds</span>    <span class="o">=</span> <span class="n">pydicom</span><span class="o">.</span><span class="n">dcmread</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">scale</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">DoseGridScaling</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="o">.</span><span class="n">DoseUnits</span> <span class="o">==</span> <span class="s2">&quot;GY&quot;</span><span class="p">:</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dose Units are not correct for: &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
@@ -949,7 +954,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">origin</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">ImagePositionPatient</span><span class="p">]</span>
     <span class="n">pix_sp</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">PixelSpacing</span><span class="p">]</span>  <span class="c1"># [row_spacing=dy, col_spacing=dx]</span>
-    <span class="n">dz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">SliceThickness</span><span class="p">)</span>
+    <span class="n">dz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">SliceThickness</span><span class="p">)</span> <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">SliceThickness</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pix_sp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
   
     <span class="c1"># PixelSpacing = [row_spacing, col_spacing] = [dy, dx]</span>
     <span class="k">return</span> <span class="n">origin</span><span class="p">,</span> <span class="p">[</span><span class="n">pix_sp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">pix_sp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dz</span><span class="p">]</span>   <span class="c1"># [dx, dy, dz]</span></div>
