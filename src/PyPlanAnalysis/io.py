@@ -59,7 +59,7 @@ and explains exactly what couldn't be confirmed via `link_warnings`.
 
 
 
-def _collect_candidates(folder: Path):
+def _collect_candidates(folder: Path, rad_type: str):
     
     
     @dataclass
@@ -83,7 +83,7 @@ def _collect_candidates(folder: Path):
         path: Path
         sop_class: Optional[str]
         sop_uid: Optional[str]
-        radiationType: str #"PROTON"
+        radiationType: Optional[str] #"PROTON"
         patient_id: Optional[str]
         ref_struct: Optional[tuple] = None  # (ReferencedSOPClassUID, ReferencedSOPInstanceUID)
     
@@ -109,7 +109,7 @@ def _collect_candidates(folder: Path):
 
     for f in folder.rglob("*.dcm"):
         try:
-            ds = pydicom.dcmread(str(f), stop_before_pixels=True)
+            ds = pydicom.dcmread(str(f), stop_before_pixels=True, force=True)
         except Exception:
             continue
         modality = getattr(ds, "Modality", "")
@@ -150,7 +150,12 @@ def _collect_candidates(folder: Path):
                     getattr(ref, "ReferencedSOPInstanceUID", None),
                 )
             
-            radiationType= getattr(ds, "RadiationType", "").upper()
+            try:
+                radiationType= getattr(ds, "RadiationType", "").upper()
+            except:
+                print("RadiationTag not defined in {f}, filter disabled")
+                radiationType = None
+                
             rtplans.append(RTPlanCandidate(
                 path=f,
                 sop_class=getattr(ds, "SOPClassUID", None),
@@ -305,14 +310,48 @@ def _best_dose(doses_of_kind, plan, fallback_pool, kind_label,
 
     return None
 
+def _strict_chain(ct_series, rtstructs, rtplans, rad_type):
+    """Resolve a valid RTPLAN/RTSTRUCT/CT-series chain for a given folder.
 
-def _strict_chain(ct_series, rtstructs, rtplans):
-    """Try every RTPLAN/RTSTRUCT pairing (or RTSTRUCT alone, if no RTPLAN
-    exists) until one is found whose reference tags fully check out
-    against a CT series actually present in the folder. Returns
-    (plan, struct, series_uid, fully_verified) or (None, None, None, False)
-    if nothing checks out."""
-    plan_candidates = rtplans if rtplans else [None]
+    Candidate RTPLANs are tried in the following priority order:
+      1. Plans whose RadiationType matches the requested `rad_type`.
+      2. Any other available plans (regardless of RadiationType), used
+         as a fallback if no matching plan yields a fully valid chain.
+      3. If no plan (matching or otherwise) resolves to a valid chain,
+         or if no RTPLAN exists at all, fall back to an RTSTRUCT that is
+         directly associated with one of the given CT series.
+
+    For each candidate plan, the function attempts to resolve:
+      RTPLAN -> RTSTRUCT (via plan.ref_struct) -> CT series (via
+      struct.ref_series_uids), verifying that the referenced CT series
+      is actually present in `ct_series`. The first candidate that
+      resolves a complete, valid chain is returned.
+
+    Args:
+        ct_series: Iterable of CT series UIDs present in the folder, if any.
+        rtstructs: List of RTSTRUCT objects, each exposing sop_class,
+            sop_uid, and ref_series_uids.
+        rtplans: List of RTPLAN objects, each exposing RadiationType,
+            and ref_struct (a (sop_class, sop_uid) tuple).
+        rad_type: The radiation type requested by the user (e.g.
+            "PROTON"), used to prioritize matching plans.
+
+    Returns:
+        A tuple (plan, struct, series_uid, fully_verified):
+            - plan: The resolved RTPLAN, or None if resolved via the
+              RTSTRUCT-only fallback.
+            - struct: The resolved RTSTRUCT.
+            - series_uid: The CT series UID referenced by the struct.
+            - fully_verified: True if a plan was found and its chain
+              verified (regardless of whether its RadiationType matches
+              `rad_type`); False if resolved through the struct-only
+              fallback.
+        If no valid chain can be resolved at all, returns
+        (None, None, None, False).
+    """
+    matching = [p for p in rtplans if p.radiationType == rad_type]
+    others = [p for p in rtplans if p.radiationType != rad_type]
+    plan_candidates = matching + others + [None]
 
     for plan in plan_candidates:
         if plan is not None:
@@ -325,11 +364,9 @@ def _strict_chain(ct_series, rtstructs, rtplans):
 
         if struct is None:
             continue
-
         series_uid = next((uid for uid in struct.ref_series_uids if uid in ct_series), None)
         if series_uid is None:
             continue
-
         return plan, struct, series_uid, (plan is not None)
 
     return None, None, None, False
@@ -394,7 +431,7 @@ class _AmbiguousDose:
 
 _AMBIGUOUS_DOSE = _AmbiguousDose()
 
-def find_dicom_files(folder: Path) -> dict:
+def find_dicom_files(folder: Path, rad_type: str) -> dict:
     """
     Auto-discover RT Dose (physical dose, LET), RT Struct, RT Plan and CT
     files belonging to the same plan, by inspecting DICOM modality tags
@@ -422,9 +459,9 @@ def find_dicom_files(folder: Path) -> dict:
     folder = Path(folder)
     link_warnings: list = []
 
-    ct_series, rtstructs, rtplans, rtdoses = _collect_candidates(folder)
+    ct_series, rtstructs, rtplans, rtdoses = _collect_candidates(folder, rad_type)
 
-    plan, struct, series_uid, verified = _strict_chain(ct_series, rtstructs, rtplans)
+    plan, struct, series_uid, verified = _strict_chain(ct_series, rtstructs, rtplans, rad_type)
 
     if struct is None and (rtstructs or ct_series):
         # The strict search found nothing usable at all; fall back.
@@ -509,7 +546,7 @@ def load_ct_series(ct_folder: Union[str, Path]) -> tuple:
     slices = []
     for f in ct_folder.glob("*.dcm"):
         try:
-            ds = pydicom.dcmread(str(f), stop_before_pixels=True)
+            ds = pydicom.dcmread(str(f), stop_before_pixels=True, force=True)
             if getattr(ds, "Modality", "") == "CT":
                 slices.append((float(ds.ImagePositionPatient[2]), str(f), ds))
         except Exception:
@@ -526,11 +563,13 @@ def load_ct_series(ct_folder: Union[str, Path]) -> tuple:
     dx, dy = pix_sp[1], pix_sp[0]
     dz     = float(z_positions[1] - z_positions[0]) if len(z_positions) > 1 else float(first_ds.SliceThickness)
     origin = [float(v) for v in first_ds.ImagePositionPatient]  # [x0, y0, z0]
- 
+    series_uid = first_ds.SeriesInstanceUID
+    
     # Use SimpleITK series reader for correct pixel data ordering
     reader = sitk.ImageSeriesReader()
-    dicom_names = reader.GetGDCMSeriesFileNames(str(ct_folder))
-    if not dicom_names:
+    dicom_names = reader.GetGDCMSeriesFileNames(str(ct_folder),series_uid)
+    if not len(dicom_names) == len(slices):
+        warnings.warn("\nCheck CT reading, not all slices are correctly read\n")
         # fallback: use our sorted file list
         dicom_names = [s[1] for s in slices]
     reader.SetFileNames(dicom_names)
@@ -636,7 +675,27 @@ def resample_dose_to_new_grid(
         updated_info,
         dose_ds)
 
+def _get_reference_ct_volume(sitk_ct):
+    """Extract a single 3D CT volume from a 4D (dual-energy / multi-channel)
+    stack, to be used as a resampling reference.
 
+    If sitk_ct is already 3D, it is returned unchanged. If it is 4D
+    (e.g. dual-energy CT with two stacked energy volumes), the first
+    volume along the 4th dimension is extracted and returned as a
+    proper 3D image (spacing/direction/origin trimmed accordingly).
+    """
+    if sitk_ct.GetDimension() == 3:
+        return sitk_ct
+
+    size = list(sitk_ct.GetSize())
+    # Extract index 0 along the 4th dimension -> collapse it to size 0
+    extract_size = size[:3] + [0]
+    extract_index = [0, 0, 0, 0]
+
+    extractor = sitk.ExtractImageFilter()
+    extractor.SetSize(extract_size)
+    extractor.SetIndex(extract_index)
+    return extractor.Execute(sitk_ct)
  
 def resample_dose_on_ct(sitk_dose: sitk.Image,
                         sitk_ct:   sitk.Image) -> sitk.Image:
@@ -656,6 +715,7 @@ def resample_dose_on_ct(sitk_dose: sitk.Image,
     -------
     SimpleITK.Image  same grid as sitk_ct
     """
+    sitk_ct = _get_reference_ct_volume(sitk_ct)
     resampler = sitk.ResampleImageFilter()
     resampler.SetOutputSpacing(sitk_ct.GetSpacing())
     resampler.SetSize(sitk_ct.GetSize())

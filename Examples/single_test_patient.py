@@ -13,7 +13,7 @@ from Tests import Paths
 # ------------------------------------------------------------------
 # 1. Point to your DICOM files
 # ------------------------------------------------------------------
-Test_folder_name = "DD-0ZKEKUPU"
+Test_folder_name = "109783"#"DD-0ZKEKUPU"
 
 #set manually your output folder
 data_dir = Paths.TEST_DATA / Test_folder_name / Paths.TEST_DATA_INPUT
@@ -21,7 +21,7 @@ output_dir = Paths.TEST_OUTPUT  / Test_folder_name / Paths.TEST_PA_OUTPUT
 
 # Auto-discover files from a folder:
 plan = PatientPlan.from_folder( folder = data_dir, 
-                                n_fractions = 30)
+                                n_fractions = 30, rad_type = "PROTON")
 
 ## Alternatively, set manually:
 # plan = PatientPlan(
@@ -75,7 +75,7 @@ NTCP_config = NTCPConfig() # uses built-in defaults
 NTCP_config = NTCPConfig(
     models=["OcularToxicity_G2_acute__LacrimalGland_ipsi", "OcularToxicity_G2_acute__LacrimalGland_contra"],
     #roi_overrides={"OcularToxicity_G2_acute__LacrimalGland_ipsi": "LacrimalGland_L"},  # explicit ROI, skips OAR/side logic
-    ctv_name="CTV_48000_phy",  # optional; omit to auto-pick first "CTV" match
+    ctv_name="CTV_4800_phy",  # optional; omit to auto-pick first "CTV" match
 )
 
 # ------------------------------------------------------------------

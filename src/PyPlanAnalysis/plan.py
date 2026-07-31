@@ -75,11 +75,11 @@ class PatientPlan:
             self.patient_id  = patient_id
             
         elif dose_file is not None:
-            ds = pydicom.dcmread(str(dose_file), stop_before_pixels=True)
+            ds = pydicom.dcmread(str(dose_file), stop_before_pixels=True, force=True)
             self.patient_id = ds.PatientID
             
         elif rtstruct is not None:
-            ds = pydicom.dcmread(str(rtstruct), stop_before_pixels=True)
+            ds = pydicom.dcmread(str(rtstruct), stop_before_pixels=True, force=True)
             self.patient_id = ds.PatientID
         else:
             print("can´t resolve patient name, setting it to UNKNOWN")
@@ -100,7 +100,8 @@ class PatientPlan:
     @classmethod
     def from_folder(cls,
                     folder: Union[str, Path],
-                    n_fractions: int | None = None) -> "PatientPlan":
+                    n_fractions: int | None = None,
+                    rad_type: str = "PROTON") -> "PatientPlan":
         """
         Create a PatientPlan by auto-discovering DICOM files in folder.
 
@@ -110,7 +111,7 @@ class PatientPlan:
         patient_id : if None, uses the folder name
         """
         folder = Path(folder)
-        files  = find_dicom_files(folder)
+        files  = find_dicom_files(folder, rad_type)
                 
         missing = [k for k, v in files.items() if v is None]
         if missing:
@@ -128,8 +129,8 @@ class PatientPlan:
             pat = files["Patient_ID"]
             print(f"\nSearched for patient {pat}")
             for f in found:
-                if f not in ["linked","link_warnings"]:
-                    print(f"✓ Ready to load {f}")
+                if f not in ["linked","link_warnings","Patient_ID"]:
+                    print(f"✓ Ready to load {f}: {files[f]}")
         return cls(
             patient_id = files["Patient_ID"],
             plan_file  = files["rtplan"],
@@ -149,8 +150,15 @@ class PatientPlan:
         print("\n")
         print(f"Loading DICOM files for {self.patient_id}...")
         if self.plan_file is not None:
-            self._plan_ds  = pydicom.dcmread(str(self.plan_file))
+            self._plan_ds  = pydicom.dcmread(str(self.plan_file), force=True)
             n_fractions_from_rtplan = self._plan_ds.FractionGroupSequence[0].NumberOfFractionsPlanned
+            print("Selected plan: {self._plan_ds.RTPlanName}")
+            try: 
+                radtype= self._plan_ds.RadiationType
+                print("Radiation Type: {radtype}")
+            except:
+                print("Radiation Type: unknown")
+                
             if self.n_fractions is not None:
                 if n_fractions_from_rtplan != self.n_fractions:
                     print(f'⚠ Number of fractions specified does not match RTPLAN, overwriting with RTPLAN value: {n_fractions_from_rtplan} fractions')
@@ -171,13 +179,13 @@ class PatientPlan:
             
             if dose_type in ("EFFECTIVE"):
                 self._is_scaling_performed_from_RBEw_dose  = True
-                self._dose_arr = self._dose_arr/1.1
-                
+                self._dose_arr = self._dose_arr/1.1  
+            
         if self.let_file is not None:
             self._let_arr, self._let_ds = load_dose_grid(self.let_file)
     
         if self.rtstruct is not None:
-            self._rtstruct_ds = pydicom.dcmread(str(self.rtstruct))
+            self._rtstruct_ds = pydicom.dcmread(str(self.rtstruct), force=True)
     
         if self.CT_folder is not None:
             try:
