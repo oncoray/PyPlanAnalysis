@@ -278,7 +278,7 @@ See the project README for usage examples.</p>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="PyPlanAnalysis.plan.PatientPlan.from_folder">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_folder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_fractions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#PatientPlan.from_folder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.PatientPlan.from_folder" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_folder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_fractions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rad_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'PROTON'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/plan.html#PatientPlan.from_folder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.plan.PatientPlan.from_folder" title="Link to this definition">¶</a></dt>
 <dd><p>Create a PatientPlan by auto-discovering DICOM files in folder.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -286,6 +286,7 @@ See the project README for usage examples.</p>
 <li><p><strong>folder</strong> (<em>path containing .dcm files</em>)</p></li>
 <li><p><strong>patient_id</strong> (<em>if None</em><em>, </em><em>uses the folder name</em>)</p></li>
 <li><p><strong>n_fractions</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>rad_type</strong> (<em>str</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>

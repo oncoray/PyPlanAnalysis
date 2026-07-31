@@ -253,7 +253,7 @@ mask extraction (binary and fractional).</p>
 </section>
 <dl class="py function">
 <dt class="sig sig-object py" id="PyPlanAnalysis.io.find_dicom_files">
-<span class="sig-name descname"><span class="pre">find_dicom_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#find_dicom_files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.find_dicom_files" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">find_dicom_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rad_type</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#find_dicom_files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.find_dicom_files" title="Link to this definition">¶</a></dt>
 <dd><p>Auto-discover RT Dose (physical dose, LET), RT Struct, RT Plan and CT
 files belonging to the same plan, by inspecting DICOM modality tags
 and cross-reference (Referenced UID) tags. The folder (and its
@@ -286,7 +286,10 @@ confirmed and what was used instead.</p>
 </p>
 </dd>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>folder</strong> (<em>Path</em>)</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>folder</strong> (<em>Path</em>)</p></li>
+<li><p><strong>rad_type</strong> (<em>str</em>)</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>

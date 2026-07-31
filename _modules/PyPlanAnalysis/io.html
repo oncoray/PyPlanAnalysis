@@ -297,7 +297,7 @@
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_collect_candidates</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_collect_candidates</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">rad_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
     
     
     <span class="nd">@dataclass</span>
@@ -321,7 +321,7 @@
         <span class="n">path</span><span class="p">:</span> <span class="n">Path</span>
         <span class="n">sop_class</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
         <span class="n">sop_uid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-        <span class="n">radiationType</span><span class="p">:</span> <span class="nb">str</span> <span class="c1">#&quot;PROTON&quot;</span>
+        <span class="n">radiationType</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="c1">#&quot;PROTON&quot;</span>
         <span class="n">patient_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
         <span class="n">ref_struct</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># (ReferencedSOPClassUID, ReferencedSOPInstanceUID)</span>
     
@@ -347,7 +347,7 @@
 
     <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">folder</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s2">&quot;*.dcm&quot;</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">ds</span> <span class="o">=</span> <span class="n">pydicom</span><span class="o">.</span><span class="n">dcmread</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">stop_before_pixels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="n">pydicom</span><span class="o">.</span><span class="n">dcmread</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">stop_before_pixels</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="n">modality</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;Modality&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
@@ -388,7 +388,12 @@
                     <span class="nb">getattr</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="s2">&quot;ReferencedSOPInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
                 <span class="p">)</span>
             
-            <span class="n">radiationType</span><span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;RadiationType&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">radiationType</span><span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;RadiationType&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;RadiationTag not defined in </span><span class="si">{f}</span><span class="s2">, filter disabled&quot;</span><span class="p">)</span>
+                <span class="n">radiationType</span> <span class="o">=</span> <span class="kc">None</span>
+                
             <span class="n">rtplans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">RTPlanCandidate</span><span class="p">(</span>
                 <span class="n">path</span><span class="o">=</span><span class="n">f</span><span class="p">,</span>
                 <span class="n">sop_class</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SOPClassUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
@@ -543,14 +548,48 @@
 
     <span class="k">return</span> <span class="kc">None</span>
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_strict_chain</span><span class="p">(</span><span class="n">ct_series</span><span class="p">,</span> <span class="n">rtstructs</span><span class="p">,</span> <span class="n">rtplans</span><span class="p">,</span> <span class="n">rad_type</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve a valid RTPLAN/RTSTRUCT/CT-series chain for a given folder.</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_strict_chain</span><span class="p">(</span><span class="n">ct_series</span><span class="p">,</span> <span class="n">rtstructs</span><span class="p">,</span> <span class="n">rtplans</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Try every RTPLAN/RTSTRUCT pairing (or RTSTRUCT alone, if no RTPLAN</span>
-<span class="sd">    exists) until one is found whose reference tags fully check out</span>
-<span class="sd">    against a CT series actually present in the folder. Returns</span>
-<span class="sd">    (plan, struct, series_uid, fully_verified) or (None, None, None, False)</span>
-<span class="sd">    if nothing checks out.&quot;&quot;&quot;</span>
-    <span class="n">plan_candidates</span> <span class="o">=</span> <span class="n">rtplans</span> <span class="k">if</span> <span class="n">rtplans</span> <span class="k">else</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+<span class="sd">    Candidate RTPLANs are tried in the following priority order:</span>
+<span class="sd">      1. Plans whose RadiationType matches the requested `rad_type`.</span>
+<span class="sd">      2. Any other available plans (regardless of RadiationType), used</span>
+<span class="sd">         as a fallback if no matching plan yields a fully valid chain.</span>
+<span class="sd">      3. If no plan (matching or otherwise) resolves to a valid chain,</span>
+<span class="sd">         or if no RTPLAN exists at all, fall back to an RTSTRUCT that is</span>
+<span class="sd">         directly associated with one of the given CT series.</span>
+
+<span class="sd">    For each candidate plan, the function attempts to resolve:</span>
+<span class="sd">      RTPLAN -&gt; RTSTRUCT (via plan.ref_struct) -&gt; CT series (via</span>
+<span class="sd">      struct.ref_series_uids), verifying that the referenced CT series</span>
+<span class="sd">      is actually present in `ct_series`. The first candidate that</span>
+<span class="sd">      resolves a complete, valid chain is returned.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ct_series: Iterable of CT series UIDs present in the folder, if any.</span>
+<span class="sd">        rtstructs: List of RTSTRUCT objects, each exposing sop_class,</span>
+<span class="sd">            sop_uid, and ref_series_uids.</span>
+<span class="sd">        rtplans: List of RTPLAN objects, each exposing RadiationType,</span>
+<span class="sd">            and ref_struct (a (sop_class, sop_uid) tuple).</span>
+<span class="sd">        rad_type: The radiation type requested by the user (e.g.</span>
+<span class="sd">            &quot;PROTON&quot;), used to prioritize matching plans.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple (plan, struct, series_uid, fully_verified):</span>
+<span class="sd">            - plan: The resolved RTPLAN, or None if resolved via the</span>
+<span class="sd">              RTSTRUCT-only fallback.</span>
+<span class="sd">            - struct: The resolved RTSTRUCT.</span>
+<span class="sd">            - series_uid: The CT series UID referenced by the struct.</span>
+<span class="sd">            - fully_verified: True if a plan was found and its chain</span>
+<span class="sd">              verified (regardless of whether its RadiationType matches</span>
+<span class="sd">              `rad_type`); False if resolved through the struct-only</span>
+<span class="sd">              fallback.</span>
+<span class="sd">        If no valid chain can be resolved at all, returns</span>
+<span class="sd">        (None, None, None, False).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">matching</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">rtplans</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">radiationType</span> <span class="o">==</span> <span class="n">rad_type</span><span class="p">]</span>
+    <span class="n">others</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">rtplans</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">radiationType</span> <span class="o">!=</span> <span class="n">rad_type</span><span class="p">]</span>
+    <span class="n">plan_candidates</span> <span class="o">=</span> <span class="n">matching</span> <span class="o">+</span> <span class="n">others</span> <span class="o">+</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
 
     <span class="k">for</span> <span class="n">plan</span> <span class="ow">in</span> <span class="n">plan_candidates</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -563,11 +602,9 @@
 
         <span class="k">if</span> <span class="n">struct</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">continue</span>
-
         <span class="n">series_uid</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">uid</span> <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">ref_series_uids</span> <span class="k">if</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">ct_series</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">series_uid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">continue</span>
-
         <span class="k">return</span> <span class="n">plan</span><span class="p">,</span> <span class="n">struct</span><span class="p">,</span> <span class="n">series_uid</span><span class="p">,</span> <span class="p">(</span><span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
@@ -634,7 +671,7 @@
 
 <div class="viewcode-block" id="find_dicom_files">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.find_dicom_files">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">find_dicom_files</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_dicom_files</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">rad_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Auto-discover RT Dose (physical dose, LET), RT Struct, RT Plan and CT</span>
 <span class="sd">    files belonging to the same plan, by inspecting DICOM modality tags</span>
@@ -662,9 +699,9 @@
     <span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
     <span class="n">link_warnings</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="n">ct_series</span><span class="p">,</span> <span class="n">rtstructs</span><span class="p">,</span> <span class="n">rtplans</span><span class="p">,</span> <span class="n">rtdoses</span> <span class="o">=</span> <span class="n">_collect_candidates</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
+    <span class="n">ct_series</span><span class="p">,</span> <span class="n">rtstructs</span><span class="p">,</span> <span class="n">rtplans</span><span class="p">,</span> <span class="n">rtdoses</span> <span class="o">=</span> <span class="n">_collect_candidates</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">rad_type</span><span class="p">)</span>
 
-    <span class="n">plan</span><span class="p">,</span> <span class="n">struct</span><span class="p">,</span> <span class="n">series_uid</span><span class="p">,</span> <span class="n">verified</span> <span class="o">=</span> <span class="n">_strict_chain</span><span class="p">(</span><span class="n">ct_series</span><span class="p">,</span> <span class="n">rtstructs</span><span class="p">,</span> <span class="n">rtplans</span><span class="p">)</span>
+    <span class="n">plan</span><span class="p">,</span> <span class="n">struct</span><span class="p">,</span> <span class="n">series_uid</span><span class="p">,</span> <span class="n">verified</span> <span class="o">=</span> <span class="n">_strict_chain</span><span class="p">(</span><span class="n">ct_series</span><span class="p">,</span> <span class="n">rtstructs</span><span class="p">,</span> <span class="n">rtplans</span><span class="p">,</span> <span class="n">rad_type</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">struct</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">rtstructs</span> <span class="ow">or</span> <span class="n">ct_series</span><span class="p">):</span>
         <span class="c1"># The strict search found nothing usable at all; fall back.</span>
@@ -752,7 +789,7 @@
     <span class="n">slices</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">ct_folder</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.dcm&quot;</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">ds</span> <span class="o">=</span> <span class="n">pydicom</span><span class="o">.</span><span class="n">dcmread</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">stop_before_pixels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="n">pydicom</span><span class="o">.</span><span class="n">dcmread</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">stop_before_pixels</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;Modality&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;CT&quot;</span><span class="p">:</span>
                 <span class="n">slices</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="nb">float</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">ImagePositionPatient</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">ds</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
@@ -769,11 +806,13 @@
     <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">pix_sp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">pix_sp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">dz</span>     <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">z_positions</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">z_positions</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">z_positions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">first_ds</span><span class="o">.</span><span class="n">SliceThickness</span><span class="p">)</span>
     <span class="n">origin</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">first_ds</span><span class="o">.</span><span class="n">ImagePositionPatient</span><span class="p">]</span>  <span class="c1"># [x0, y0, z0]</span>
- 
+    <span class="n">series_uid</span> <span class="o">=</span> <span class="n">first_ds</span><span class="o">.</span><span class="n">SeriesInstanceUID</span>
+    
     <span class="c1"># Use SimpleITK series reader for correct pixel data ordering</span>
     <span class="n">reader</span> <span class="o">=</span> <span class="n">sitk</span><span class="o">.</span><span class="n">ImageSeriesReader</span><span class="p">()</span>
-    <span class="n">dicom_names</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">GetGDCMSeriesFileNames</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ct_folder</span><span class="p">))</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">dicom_names</span><span class="p">:</span>
+    <span class="n">dicom_names</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">GetGDCMSeriesFileNames</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ct_folder</span><span class="p">),</span><span class="n">series_uid</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">dicom_names</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">slices</span><span class="p">):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Check CT reading, not all slices are correctly read</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="c1"># fallback: use our sorted file list</span>
         <span class="n">dicom_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">]</span>
     <span class="n">reader</span><span class="o">.</span><span class="n">SetFileNames</span><span class="p">(</span><span class="n">dicom_names</span><span class="p">)</span>
@@ -883,7 +922,27 @@
         <span class="n">dose_ds</span><span class="p">)</span></div>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_reference_ct_volume</span><span class="p">(</span><span class="n">sitk_ct</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract a single 3D CT volume from a 4D (dual-energy / multi-channel)</span>
+<span class="sd">    stack, to be used as a resampling reference.</span>
 
+<span class="sd">    If sitk_ct is already 3D, it is returned unchanged. If it is 4D</span>
+<span class="sd">    (e.g. dual-energy CT with two stacked energy volumes), the first</span>
+<span class="sd">    volume along the 4th dimension is extracted and returned as a</span>
+<span class="sd">    proper 3D image (spacing/direction/origin trimmed accordingly).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">sitk_ct</span><span class="o">.</span><span class="n">GetDimension</span><span class="p">()</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sitk_ct</span>
+
+    <span class="n">size</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sitk_ct</span><span class="o">.</span><span class="n">GetSize</span><span class="p">())</span>
+    <span class="c1"># Extract index 0 along the 4th dimension -&gt; collapse it to size 0</span>
+    <span class="n">extract_size</span> <span class="o">=</span> <span class="n">size</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">extract_index</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">extractor</span> <span class="o">=</span> <span class="n">sitk</span><span class="o">.</span><span class="n">ExtractImageFilter</span><span class="p">()</span>
+    <span class="n">extractor</span><span class="o">.</span><span class="n">SetSize</span><span class="p">(</span><span class="n">extract_size</span><span class="p">)</span>
+    <span class="n">extractor</span><span class="o">.</span><span class="n">SetIndex</span><span class="p">(</span><span class="n">extract_index</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">extractor</span><span class="o">.</span><span class="n">Execute</span><span class="p">(</span><span class="n">sitk_ct</span><span class="p">)</span>
  
 <div class="viewcode-block" id="resample_dose_on_ct">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.resample_dose_on_ct">[docs]</a>
@@ -905,6 +964,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    SimpleITK.Image  same grid as sitk_ct</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sitk_ct</span> <span class="o">=</span> <span class="n">_get_reference_ct_volume</span><span class="p">(</span><span class="n">sitk_ct</span><span class="p">)</span>
     <span class="n">resampler</span> <span class="o">=</span> <span class="n">sitk</span><span class="o">.</span><span class="n">ResampleImageFilter</span><span class="p">()</span>
     <span class="n">resampler</span><span class="o">.</span><span class="n">SetOutputSpacing</span><span class="p">(</span><span class="n">sitk_ct</span><span class="o">.</span><span class="n">GetSpacing</span><span class="p">())</span>
     <span class="n">resampler</span><span class="o">.</span><span class="n">SetSize</span><span class="p">(</span><span class="n">sitk_ct</span><span class="o">.</span><span class="n">GetSize</span><span class="p">())</span>
