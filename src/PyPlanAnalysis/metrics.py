@@ -223,7 +223,8 @@ def compute_dvh_metrics(dose_voxels: np.ndarray,
                         alpha_beta: float = 3.0,
                         geud_a: float = 1.0,
                         weights: np.ndarray = None,
-                        n_fractions: int = 30) -> dict:
+                        n_fractions: int = 30,
+                        min_voxel_fract: float = 0.05) -> dict:
     """
     Compute all requested DVH metrics for a 1-D voxel dose array.
 
@@ -251,11 +252,11 @@ def compute_dvh_metrics(dose_voxels: np.ndarray,
     use_weights = weights is not None
     w = weights if use_weights else np.ones(n, dtype=np.float32)
     total_w = w.sum()
-
+    
     # Basic statistics — weighted
-    m[f"{label}_Dmin"]  = float(dose_voxels[w > 0].min()) if (w > 0).any() else 0.0
+    m[f"{label}_Dmin"]  = float(dose_voxels[w > min_voxel_fract].min()) if (w > min_voxel_fract).any() else 0.0
     m[f"{label}_Dmean"] = float(np.average(dose_voxels, weights=w))
-    m[f"{label}_Dmax"]  = float(dose_voxels[w > 0].max()) if (w > 0).any() else 0.0
+    m[f"{label}_Dmax"]  = float(dose_voxels[w > min_voxel_fract].max()) if (w > min_voxel_fract).any() else 0.0
 
     # Dx% — weighted version when fractional mask provided
     for x in metric_cfg.dx:
@@ -275,14 +276,30 @@ def compute_dvh_metrics(dose_voxels: np.ndarray,
         m[f"{label}_V{x}Gy_%"]  = vol_pct
 
     # gEUD — weighted power mean
+    #
+    # TECHNICAL JUSTIFICATION for the change below: the previous version
+    # dropped every voxel with dose_voxels == 0 entirely from the average
+    # (`dose_voxels[dose_voxels > 0]`). That was necessary numerically —
+    # 0 ** geud_a is undefined/infinite for the negative `a` used for
+    # target structures (CTV/GTV/PTV use a = -10 in RadiobiologyConfig) —
+    # but it silently made gEUD blind to real zero-dose voxels inside the
+    # structure (e.g. a geometric miss or a partial-volume voxel at the
+    # field edge). For a<0, gEUD is dominated by the COLDEST voxels by
+    # construction, so exactly the voxels most likely to matter for a
+    # coverage failure were the ones being excluded — gEUD would silently
+    # read better than the true coverage. Flooring dose at a small
+    # positive epsilon instead of excluding the voxel keeps it in the
+    # weighted average (so a cold/missed region still pulls gEUD down for
+    # a<0) while avoiding the 0**negative_a singularity.
     if metric_cfg.compute_geud:
-        d_pos = dose_voxels[dose_voxels > 0]
-        w_pos = w[dose_voxels > 0]
-        if len(d_pos) > 0 and w_pos.sum() > 0:
+        eps    = 1e-6  # Gy — numerical floor only, not a clinical threshold
+        d_eval = np.maximum(dose_voxels, eps)
+        valid  = w > 0
+        if valid.any() and w[valid].sum() > 0:
             if geud_a != 0:
-                geud = float(np.average(d_pos**geud_a, weights=w_pos) ** (1.0 / geud_a))
+                geud = float(np.average(d_eval[valid]**geud_a, weights=w[valid]) ** (1.0 / geud_a))
             else:
-                geud = float(np.exp(np.average(np.log(d_pos), weights=w_pos)))
+                geud = float(np.exp(np.average(np.log(d_eval[valid]), weights=w[valid])))
         else:
             geud = 0.0
         m[f"{label}_gEUD"] = geud
@@ -302,7 +319,8 @@ def compute_let_metrics(let_voxels: np.ndarray,
                         dose_voxels: np.ndarray,
                         lx_points: list,
                         label: str = "LET",
-                        weights: np.ndarray = None) -> dict:
+                        weights: np.ndarray = None,
+                        min_voxel_fract: float = 0.05) -> dict:
     """
     Compute LET summary metrics for a structure.
 
@@ -330,8 +348,8 @@ def compute_let_metrics(let_voxels: np.ndarray,
     
 
     m[f"{label}_mean"] = float(np.average(let_voxels, weights=w))
-    m[f"{label}_max"]  = float(let_voxels[w > 0].max()) if (w > 0).any() else 0.0
-    m[f"{label}_min"]  = float(let_voxels[w > 0].min()) if (w > 0).any() else 0.0
+    m[f"{label}_max"]  = float(let_voxels[w > min_voxel_fract].max()) if (w > min_voxel_fract).any() else 0.0
+    m[f"{label}_min"]  = float(let_voxels[w > min_voxel_fract].min()) if (w > min_voxel_fract).any() else 0.0
 
     # Lx% — weighted
     for x in lx_points:
@@ -385,9 +403,23 @@ def compute_cumulative_histogram(values: np.ndarray,
 def compute_2d_histogram(dose_voxels: np.ndarray,
                          let_voxels: np.ndarray,
                          dose_bins: int,
-                         let_bins: int) -> tuple:
+                         let_bins: int,
+                         weights: np.ndarray = None) -> tuple:
     """
     Compute 2-D dose-LET volume histogram (DLVH).
+
+    Parameters
+    ----------
+    weights : optional 1-D array of fractional volumes [0,1] per voxel.
+        TECHNICAL JUSTIFICATION: every other metric in this module
+        (DVH, LVH, Dx%, Vx, gEUD, Lx%) is volume-weighted when a
+        fractional mask is supplied. Previously this function had no
+        `weights` parameter at all, so `np.histogram2d` counted every
+        voxel as a full unit volume regardless of its fractional
+        membership — DLVH plots for a fractional-mask run were silently
+        inconsistent with the DVH/LVH curves computed for the exact same
+        structure and voxels. Passing weights through makes DLVH use the
+        same partial-volume accounting as the rest of the pipeline.
 
     Returns
     -------
@@ -399,7 +431,8 @@ def compute_2d_histogram(dose_voxels: np.ndarray,
     l_edges = np.linspace(0, let_voxels.max()  * 1.05, let_bins  + 1)
 
     H_diff, _, _ = np.histogram2d(dose_voxels, let_voxels,
-                                  bins=[d_edges, l_edges])
+                                  bins=[d_edges, l_edges],
+                                  weights=weights)
 
     # Convert to cumulative: H[i,j] = volume where dose >= d_edges[i] AND let >= l_edges[j]
     # Flip both axes, cumsum, flip back

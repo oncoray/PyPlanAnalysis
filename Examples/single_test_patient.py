@@ -13,7 +13,7 @@ from Tests import Paths
 # ------------------------------------------------------------------
 # 1. Point to your DICOM files
 # ------------------------------------------------------------------
-Test_folder_name = "109783"#"DD-0ZKEKUPU"
+Test_folder_name = "DD-0ZKEKUPU"
 
 #set manually your output folder
 data_dir = Paths.TEST_DATA / Test_folder_name / Paths.TEST_DATA_INPUT
@@ -86,10 +86,12 @@ results = plan.analyse(
     rbe_cfg      = rbe_cfg,
     metric_cfg   = metric_cfg,
     radiobio_cfg = radiobio_cfg,
-    resample_on_CT  = True,
-    resample_on_custom_grid    = False,
-    use_fractional =  False, 
-    supersample  = 4
+    resample_on_CT  = 1,
+    resample_on_custom_grid    = 0,
+    use_fractional = 0, 
+    supersample  = 4,
+    supersample_z  = None,
+    max_supersample = 12
 )
 
 # ------------------------------------------------------------------
@@ -99,8 +101,8 @@ results = plan.analyse(
 # Option A: save everything at once
 results.save_all(
     output_dir = output_dir,
-    csv_name   = "dvh_metrics.csv",
-    excel_name = "dvh_metrics.xlsx",
+    csv_name   = "dvh_metrics_3d_sdf.csv",
+    excel_name = "dvh_metrics_3d_sdf.xlsx",
 )
 
 results.plot_dlvh(output_dir / "dlvh_2d")

@@ -238,7 +238,9 @@ class PatientPlan:
                 resample_on_CT      : bool                 = False,
                 resample_on_custom_grid      : bool                 = False,
                 use_fractional: bool                 = False,
-                supersample   : int                  = 4) -> "AnalysisResults":
+                supersample   : int                  = 4,
+                supersample_z : int                  = None,
+                max_supersample: int                 = 12) -> "AnalysisResults":
         """
         Run the full analysis pipeline for this patient.
 
@@ -253,9 +255,17 @@ class PatientPlan:
                         of binary mask. More accurate for small structures.
                         Each voxel is weighted by the fraction of its volume
                         inside the contour. Default: False.
-        supersample   : supersampling factor for fractional mask (N×N sub-points
+        supersample   : baseline in-plane supersampling factor (N x N sub-points
                         per voxel). Only used when use_fractional=True.
-                        Default: 4 (16 sub-points per voxel, ~6% accuracy).
+                        Scaled up automatically for small structures — see
+                        io._adaptive_supersample. Default: 4.
+        supersample_z : number of z sub-samples per output voxel slab, used
+                        to linearly interpolate ROI coverage between contour
+                        planes (see io.get_fractional_mask_on_grid). Defaults
+                        to `supersample` when not given. Only used when
+                        use_fractional=True.
+        max_supersample: hard cap on the adaptive in-plane supersampling
+                        factor, to bound compute cost for very small ROIs.
 
         Returns
         -------
@@ -374,7 +384,9 @@ class PatientPlan:
                                                     grid_spacing,
                                                     grid_shape,
                                                     grid_z_positions,
-                                                    supersample = supersample)
+                                                    supersample = supersample,
+                                                    supersample_z = supersample_z,
+                                                    max_supersample = max_supersample)
                     mask    = frac > 0
                     weights = frac[mask]
                     
@@ -438,11 +450,12 @@ class PatientPlan:
             dvh_data[struct_name] = {}
            
             # ---- Physical dose ----
-            
+            min_fract = 0.5 #minimum % below which we do not count W for min or max
             if self._dose_arr is not None:
                 row.update(compute_dvh_metrics(dose_vox, vol_cc, "Phys",
                                                metric_cfg, ab, geud_a,
-                                               weights=weights,n_fractions = self.n_fractions))
+                                               weights=weights,n_fractions = self.n_fractions),
+                                               min_voxel_fract =  min_fract)
                 
                 edges, cum = compute_cumulative_histogram(dose_vox,
                                                           metric_cfg.dvh_bins,
@@ -454,7 +467,8 @@ class PatientPlan:
                 lbl_fixed  = f"RBE{rbe_cfg.fixed_rbe}"
                 row.update(compute_dvh_metrics(dose_fixed, vol_cc,  lbl_fixed ,
                                                metric_cfg, ab, geud_a,
-                                               weights=weights,n_fractions = self.n_fractions))
+                                               weights=weights,n_fractions = self.n_fractions),
+                                               min_voxel_fract = min_fract)
                 edges_f, cum_f = compute_cumulative_histogram(dose_fixed,
                                                                metric_cfg.dvh_bins,
                                                                weights=weights)
@@ -467,7 +481,8 @@ class PatientPlan:
                         rbe_dose_vox = compute_rbe_dose(dose_vox, let_vox, self.n_fractions, ab, model)
                         row.update(compute_dvh_metrics(rbe_dose_vox, vol_cc, model,
                                                        metric_cfg, ab, geud_a,
-                                                       weights=weights,n_fractions = self.n_fractions))
+                                                       weights=weights,n_fractions = self.n_fractions),
+                                                       min_voxel_fract =  min_fract)
                         e_m, c_m = compute_cumulative_histogram(rbe_dose_vox,
                                                                  metric_cfg.dvh_bins,
                                                                  weights=weights)
@@ -482,13 +497,15 @@ class PatientPlan:
                         row.update(compute_dvh_metrics(
                             dose_vox[high_let_idx], vol_cc,
                             "highLET_fixed_rbe", metric_cfg, ab, geud_a,
-                            weights=w_high,n_fractions = self.n_fractions))
+                            weights=w_high,n_fractions = self.n_fractions),
+                            min_voxel_fract =  min_fract)
 
                     # ---- 2-D DLVH ----
                     H_diff, H_cum, d_edges, l_edges_2d = compute_2d_histogram(
                         dose_fixed, let_vox,
                         metric_cfg.dlvh_dose_bins,
-                        metric_cfg.dlvh_let_bins)
+                        metric_cfg.dlvh_let_bins,
+                        weights=weights)
                     dlvh_data_diff[struct_name] = (H_diff, d_edges, l_edges_2d)
                     dlvh_data_cum[struct_name] = (H_cum, d_edges, l_edges_2d)
                     

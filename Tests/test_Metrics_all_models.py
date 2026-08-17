@@ -12,7 +12,7 @@ import pandas as pd
 from pathlib import Path
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
-from Utils import Paths
+import Paths
 
 # ============================================================
 #  CONFIG — edit these
@@ -20,7 +20,7 @@ from Utils import Paths
 
 Test_folder_name = "DD-0ZKEKUPU"
 
-Metrics_file     = Paths.TEST_OUTPUT / Test_folder_name / Paths.TEST_PA_OUTPUT / "dvh_metrics.xlsx"
+Metrics_file     = Paths.TEST_OUTPUT / Test_folder_name / Paths.TEST_PA_OUTPUT / "dvh_metrics_3d_sdf.xlsx"
 
 
 CASES = [

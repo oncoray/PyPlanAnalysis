@@ -15,6 +15,7 @@ from matplotlib.path import Path as MplPath
 
 import pydicom
 from scipy.interpolate import splprep, splev
+from scipy.ndimage import distance_transform_edt
 from collections import defaultdict
 
 from skimage.draw import polygon as sk_polygon
@@ -1084,37 +1085,298 @@ def prismatoid_volume(frac_mask, dx, dy, dz):
         vol += (dz / 6.0) * (A0 + 4*Am + A1)
     return vol / 1000.0
 
-         
+def _classify_holes_by_nesting(slice_polys):
+    """
+    Determine hole/island status for a set of coplanar polygon loops
+    using point-in-polygon NESTING DEPTH (even-odd rule), instead of only
+    testing each polygon against larger-area ones in sequence.
+
+    TECHNICAL JUSTIFICATION: the previous heuristic ("assume the biggest
+    area is an island, test every smaller polygon only against larger
+    ones, stop at the first containing polygon found") only resolves a
+    single level of nesting. It silently misclassifies any ROI where a
+    hole itself contains an island (e.g. two disjoint lobes of the same
+    structure that happen to sit inside an excluded cavity), because that
+    inner island is smaller than the hole AND is contained by it, so it
+    gets flagged as a hole too. Nesting depth is topologically correct
+    for arbitrary levels of nesting: depth 0 = island, depth 1 = hole,
+    depth 2 = island-in-hole, etc. — exactly the even-odd fill rule DICOM
+    RTSTRUCT contours are implicitly meant to be interpreted with, and
+    the same rule general mesh/finite-element boundary reconstruction
+    uses when lofting a surface from stacked polygon loops.
+
+    Parameters
+    ----------
+    slice_polys : list of np.ndarray, shape (M, 2)
+        All polygon loops belonging to one contour slice (one true z).
+
+    Returns
+    -------
+    list of bool, same length as slice_polys
+        True where the polygon at that index is a hole (odd nesting depth).
+    """
+    n = len(slice_polys)
+    depth = [0] * n
+    for i in range(n):
+        poly_i    = slice_polys[i]
+        test_pts  = poly_i[::max(1, len(poly_i) // 5)]
+        for j in range(n):
+            if i == j:
+                continue
+            path_j = MplPath(slice_polys[j], closed=True)
+            if path_j.contains_points(test_pts).mean() > 0.5:
+                depth[i] += 1
+    return [d % 2 == 1 for d in depth]
+
+
+def rasterize_slice_coverage(slice_polys, x0, y0, dx, dy, ny, nx, N):
+    """
+    Rasterise ALL polygon loops belonging to ONE true contour z-position
+    (i.e. one DICOM ContourData slice) into a single in-plane fractional
+    coverage map, islands added and holes subtracted per
+    ``_classify_holes_by_nesting``.
+
+    Factored out of ``get_fractional_mask_on_grid`` so that in-plane
+    coverage can be computed once per ORIGINAL contour z (see that
+    function's docstring for why this must be decoupled from the output
+    grid's z-slices).
+
+    Parameters
+    ----------
+    slice_polys : list of np.ndarray, shape (M, 2)
+        Polygon loops (islands + holes) for one contour slice, in mm.
+    x0, y0, dx, dy, ny, nx, N : see ``rasterize_supersampled``.
+
+    Returns
+    -------
+    np.ndarray, shape (ny, nx), float32
+        Fractional in-plane coverage, clipped to [0, 1].
+    """
+    coverage = np.zeros((ny, nx), dtype=np.float32)
+    valid_polys = [p for p in slice_polys if len(p) >= 3]
+    if not valid_polys:
+        return coverage
+
+    is_hole = _classify_holes_by_nesting(valid_polys)
+
+    for poly_xy, hole in zip(valid_polys, is_hole):
+        fraction = rasterize_supersampled(poly_xy, x0, y0, dx, dy, ny, nx, N)
+        coverage = coverage - fraction if hole else coverage + fraction
+
+    return np.clip(coverage, 0.0, 1.0)
+
+
+def _coverage_to_sdf(coverage: np.ndarray, dx: float, dy: float,
+                      subpixel_refine: bool = True) -> np.ndarray:
+    """
+    Convert an in-plane fractional coverage raster into a 2-D signed
+    distance field (SDF), in mm, positive INSIDE the structure and
+    negative OUTSIDE, magnitude = distance to the nearest boundary.
+
+    This is the per-slice building block for shape-based z-interpolation
+    (see ``get_fractional_mask_on_grid``): rather than linearly blending
+    opacity/coverage values between two contour planes — which is known
+    to erode or "melt" the structure wherever its cross-section changes
+    shape, size, or position between planes (a classic artifact of alpha
+    cross-dissolving two masks) — we interpolate the *geometry* of the
+    boundary itself, which is what an SDF encodes.
+
+    Parameters
+    ----------
+    coverage : np.ndarray, shape (ny, nx)
+        Fractional in-plane coverage map in [0, 1], as produced by
+        ``rasterize_slice_coverage``.
+    dx, dy   : float — in-plane voxel spacing, mm. Used as the EDT
+        sampling so distances come out in physical mm, not pixels.
+    subpixel_refine : bool
+        If True, overwrite the boundary-adjacent band of the distance
+        transform (|sdf| <= 1 pixel) with a direct estimate derived from
+        the antialiased coverage fraction itself, (coverage - 0.5) *
+        pixel_size. The plain Euclidean distance transform only "sees"
+        the binarised (coverage >= 0.5) raster and is therefore blind to
+        sub-pixel boundary position; this refinement folds that
+        information back in near the boundary where it matters most.
+
+    Returns
+    -------
+    np.ndarray, float32, shape (ny, nx)
+        Signed distance field in mm. Fully-outside or fully-inside
+        rasters (no boundary present) return a uniform large-magnitude
+        constant field so they behave correctly under interpolation
+        with a neighbouring slice that does have a boundary.
+    """
+    inside = coverage >= 0.5
+
+    if not inside.any():
+        return np.full(coverage.shape, -1.0e3, dtype=np.float32)
+    if inside.all():
+        return np.full(coverage.shape, 1.0e3, dtype=np.float32)
+
+    dist_in  = distance_transform_edt(inside,  sampling=(dy, dx))
+    dist_out = distance_transform_edt(~inside, sampling=(dy, dx))
+    sdf = (dist_in - dist_out).astype(np.float32)
+
+    if subpixel_refine:
+        pixel_size = (dx + dy) / 2.0
+        boundary_band = np.abs(sdf) <= pixel_size
+        refined = (coverage.astype(np.float32) - 0.5) * pixel_size
+        sdf = np.where(boundary_band, refined, sdf)
+
+    return sdf
+
+
+def _sdf_to_coverage(sdf: np.ndarray, dx: float, dy: float) -> np.ndarray:
+    """
+    Reconstruct an antialiased fractional coverage raster from a signed
+    distance field, the inverse operation of ``_coverage_to_sdf``.
+
+    A one-pixel-wide linear ramp is used to convert distance-to-boundary
+    into partial coverage (sdf = 0 at the boundary -> 0.5; sdf >=
+    +half a pixel, fully inside -> 1.0; sdf <= -half a pixel, fully
+    outside -> 0.0), which is the standard antialiasing reconstruction
+    used for SDF-represented shapes.
+
+    Parameters
+    ----------
+    sdf      : np.ndarray, shape (ny, nx) — signed distance field, mm,
+        positive inside (see ``_coverage_to_sdf``).
+    dx, dy   : float — in-plane voxel spacing, mm.
+
+    Returns
+    -------
+    np.ndarray, float32, shape (ny, nx), values in [0, 1]
+    """
+    pixel_size = (dx + dy) / 2.0
+    coverage = 0.5 + sdf / pixel_size
+    return np.clip(coverage, 0.0, 1.0).astype(np.float32)
+
+
+def _adaptive_supersample(contours, dx, dy, base_N, max_N=12, target_subsamples=16):
+    """
+    Scale the in-plane supersampling factor up for small structures.
+
+    TECHNICAL JUSTIFICATION: a fixed N gives a fixed number of sub-points
+    (N²) per OUTPUT VOXEL, regardless of how many voxels the structure
+    itself spans. A 40-voxel-wide PTV and a 2-voxel-wide lens both get
+    the same N=4 (~6% accuracy, per the original docstring) even though
+    the lens's boundary curvature is resolved by only ~8 voxels total —
+    the actual accuracy-limiting factor is sub-samples PER STRUCTURE
+    WIDTH, not sub-samples per voxel. This scales N so the number of
+    sub-samples spanning the structure's narrowest in-plane bounding-box
+    dimension stays roughly constant (~target_subsamples) whether the
+    structure is a PTV or a 3-voxel-wide serial OAR, bounded by max_N to
+    cap the compute cost.
+
+    Parameters
+    ----------
+    contours : list of np.ndarray, shape (M, 3)
+        All raw contour point arrays for the ROI (x, y, z in mm).
+    dx, dy   : float — in-plane voxel spacing, mm.
+    base_N   : int — minimum/default supersampling factor (large structures).
+    max_N    : int — hard cap on the supersampling factor.
+    target_subsamples : int — desired sub-sample count across the
+        structure's narrowest bounding-box dimension.
+
+    Returns
+    -------
+    int
+        Effective supersampling factor N to use for this structure.
+    """
+    all_xy  = np.concatenate([c[:, :2] for c in contours], axis=0)
+    bbox_w  = all_xy[:, 0].max() - all_xy[:, 0].min()
+    bbox_h  = all_xy[:, 1].max() - all_xy[:, 1].min()
+    bbox_vox = min(bbox_w / dx, bbox_h / dy)
+    if bbox_vox <= 0:
+        return base_N
+    n_req = int(np.ceil(target_subsamples / bbox_vox))
+    return int(np.clip(n_req, base_N, max_N))
+
+
 def get_fractional_mask_on_grid(struct_name: str,
                                 rtstruct_ds,
                                 origin:      list,
                                 spacing:     list,
                                 shape:       tuple,
                                 z_positions: np.ndarray,
-                                supersample: int = 4) -> np.ndarray:
+                                supersample: int = 4,
+                                supersample_z: int = None,
+                                max_supersample: int = 12) -> np.ndarray:
     """
     Compute a fractional voxel membership mask on an arbitrary grid.
- 
+
     Each voxel receives a value in [0,1] — the fraction of its physical
-    area (in xy) that lies inside the RT Struct contour, estimated by
-    supersampling (supersample² sub-points per voxel).
- 
+    VOLUME (in-plane AND through-slice) that lies inside the RT Struct
+    contour. In-plane coverage is estimated by supersampling
+    (adaptive N² sub-points per voxel, see ``_adaptive_supersample``).
+    Through-slice (z) coverage is estimated by treating the true contour
+    z-positions as control planes and interpolating the STRUCTURE'S
+    BOUNDARY GEOMETRY — not its raw in-plane coverage/opacity — between
+    the two bracketing contour slices at each of ``supersample_z``
+    sub-depths within an output voxel's z-extent, then averaging. This is
+    done via shape-based interpolation: each contour slice's fractional
+    coverage raster is first converted to a 2-D signed distance field
+    (SDF, see ``_coverage_to_sdf``), the SDFs of the two bracketing
+    slices are linearly interpolated/averaged in distance space, and the
+    resulting SDF is converted back to a fractional coverage raster only
+    once, at the end (``_sdf_to_coverage``).
+
+    TECHNICAL JUSTIFICATION for the z-interpolation (this is the main
+    change from the previous version): contours were previously snapped
+    to the single nearest output z-index, so an output voxel's z-extent
+    was always either "fully in" or "fully out" of the structure — no
+    different, in the z direction, from a hard binary mask. This
+    reproduces the same staircase/quantization error along the
+    cranial-caudal axis that fractional in-plane weighting was written to
+    avoid in-plane, and it gets worse whenever the analysis grid's z
+    spacing does not match the original contour spacing (e.g. resampling
+    dose/LET/mask onto a coarser custom grid).
+
+    A direct linear blend of the raw coverage rasters (alpha
+    cross-dissolving) was tried first, but that interpolates OPACITY, not
+    GEOMETRY: wherever the cross-section shifts, rotates, or changes size
+    between two contour planes (tapering structures, branching anatomy,
+    slightly mis-registered slices), an opacity blend produces a faint,
+    eroded double-exposure of both shapes rather than a smoothly moving
+    boundary, understating volume in exactly the transition regions where
+    accuracy matters most. Interpolating signed distance fields instead
+    — the classical "shape-based interpolation" approach (Raya & Udupa,
+    1990) — averages DISTANCE TO THE BOUNDARY rather than opacity, so the
+    reconstructed boundary at any intermediate depth is the correct
+    (piecewise-linear-in-distance) locus of points equidistant between
+    the two true contours; this is the discretised equivalent of lofting
+    a triangulated surface between them, without an opacity blend's
+    tendency to thin the structure out.
+
+    Outside the structure's own z-extent, the boundary geometry (i.e. the
+    SDF, hence coverage) is held constant at the nearest edge slice's
+    value (rather than tapering to zero), because RTSTRUCT contours
+    conventionally represent the slice-thickness worth of structure
+    centred on each contour, so the ROI is assumed to occupy a
+    half-slice-thickness beyond the first/last contour plane, not to end
+    exactly on it.
+
     Parameters
     ----------
-    struct_name  : str
-    rtstruct_ds  : pydicom Dataset
-    origin       : [x0, y0, z0]  mm
-    spacing      : [dx, dy, dz]  mm
-    shape        : (nz, ny, nx)
-    z_positions  : 1-D array length nz
-    supersample  : N subdivisions per side (default 4 → 16 sub-points/voxel)
- 
+    struct_name     : str
+    rtstruct_ds     : pydicom Dataset
+    origin          : [x0, y0, z0]  mm
+    spacing         : [dx, dy, dz]  mm
+    shape           : (nz, ny, nx)
+    z_positions     : 1-D array length nz
+    supersample     : baseline in-plane N (default 4). Scaled up
+                      per-structure by ``_adaptive_supersample``.
+    supersample_z   : number of z sub-samples per output voxel slab.
+                      Defaults to ``supersample`` if not given, so a
+                      voxel gets comparable resolution in-plane and
+                      through-plane.
+    max_supersample : hard cap for the adaptive in-plane N.
+
     Returns
     -------
     frac_mask : np.ndarray float32, shape (nz, ny, nx), values in [0, 1]
     """
     name_to_roi, roi_to_contours = _build_roi_maps(rtstruct_ds)
- 
+
     key = struct_name.strip().lower()
     if key not in name_to_roi:
         raise ValueError(
@@ -1123,67 +1385,109 @@ def get_fractional_mask_on_grid(struct_name: str,
         )
     roi_number = name_to_roi[key]
     contours   = roi_to_contours.get(roi_number, [])
- 
+
     x0, y0, z0 = origin
     dx, dy, dz  = spacing
     nz, ny, nx  = shape
- 
+
     frac_mask = np.zeros(shape, dtype=np.float32)
- 
+
     if not contours:
         warnings.warn(f"No contour data for '{struct_name}'.")
         return frac_mask
- 
-    N  = supersample
 
-    # Group contours by slice
-    slice_contours = defaultdict(list)
-    n = 0
+    Nz = supersample_z if supersample_z is not None else supersample
+    N  = _adaptive_supersample(contours, dx, dy, base_N=supersample, max_N=max_supersample)
+
+    # ---- group contours by their TRUE z (mm), NOT by nearest grid index ----
+    # (rounded to 3 decimals only to merge floating-point duplicates of the
+    # same physical slice; this is not a grid-snapping step)
+    slice_polys_by_z = defaultdict(list)
     for pts in contours:
-        n+=1
-        z_val = float(pts[0, 2])
-        diffs = np.abs(z_positions - z_val)
-        z_idx = int(np.argmin(diffs))
-        if diffs[z_idx] > dz * 0.5:
-            warnings.warn(f"Contour z={z_val:.2f}mm is {diffs[z_idx]:.2f}mm from nearest slice")
-        slice_contours[z_idx].append(pts[:, :2])
+        z_val = round(float(pts[0, 2]), 3)
+        slice_polys_by_z[z_val].append(pts[:, :2])
 
-    
-    for z_idx, slice_polys in slice_contours.items():
-        if not slice_polys:
+    sorted_z = np.array(sorted(slice_polys_by_z.keys()))
+
+    if len(sorted_z) > 1:
+        gaps = np.diff(sorted_z)
+        if gaps.max() > 2.0 * np.median(gaps):
+            warnings.warn(
+                f"'{struct_name}': contour spacing is irregular (max gap "
+                f"{gaps.max():.2f}mm vs median {np.median(gaps):.2f}mm) — "
+                "possible missing slice(s); linear z-interpolation across a "
+                "large gap is a weaker approximation than across evenly "
+                "spaced contours."
+            )
+
+    # rasterise in-plane coverage ONCE per true contour z (not per output slab)
+    coverage_by_z = [
+        rasterize_slice_coverage(slice_polys_by_z[z], x0, y0, dx, dy, ny, nx, N)
+        for z in sorted_z
+    ]
+    # ...and convert each slice's coverage raster to a signed distance field
+    # ONCE as well — z-interpolation below blends SDFs (geometry), not the
+    # raw coverage rasters (opacity); see docstring for why.
+    sdf_by_z = [_coverage_to_sdf(cov, dx, dy) for cov in coverage_by_z]
+    z_min, z_max = float(sorted_z[0]), float(sorted_z[-1])
+
+    # Physically bounded end-cap extension: each contour conventionally
+    # represents the half-slice-thickness of structure centred on it, using
+    # the LOCAL native contour spacing at that end — NOT the output grid's
+    # dz. Using the output dz here (or clipping every sample unconditionally
+    # into [z_min, z_max]) over-extends the ROI whenever the analysis grid
+    # is coarser than the original contour spacing, e.g. resampling a plan
+    # contoured on a 1-2mm CT onto a 3mm dose/LET grid: an end-cap output
+    # voxel would incorrectly get 100% coverage across its FULL (coarse)
+    # thickness instead of just the true ~0.5-1mm the structure actually
+    # extends past the last contour, inflating volume at both structure poles.
+    pad_lo = (sorted_z[1] - sorted_z[0]) / 2.0 if len(sorted_z) > 1 else dz / 2.0
+    pad_hi = (sorted_z[-1] - sorted_z[-2]) / 2.0 if len(sorted_z) > 1 else dz / 2.0
+    z_extent_lo, z_extent_hi = z_min - pad_lo, z_max + pad_hi
+
+    # ---- resample through z with linear interpolation between contour planes ----
+    for z_idx in range(nz):
+        z_center = z_positions[z_idx]
+        z_lo = z_center - dz / 2.0
+        z_hi = z_center + dz / 2.0
+
+        # skip output slabs entirely outside the (padded) structure extent
+        if z_hi < z_extent_lo or z_lo > z_extent_hi:
             continue
-    
-        areas = [abs(contour_area_signed(p)) for p in slice_polys]
-        slice_polys = [slice_polys[i] for i in np.argsort(areas)[::-1]]
-    
-        slice_fraction = np.zeros((ny, nx), dtype=np.float32)
-    
-        for i, poly_xy in enumerate(slice_polys):
-            if len(poly_xy) < 3:
+
+        z_samples = z_lo + (np.arange(Nz) + 0.5) * (dz / Nz)
+
+        # Accumulate in SDF (distance) space, not coverage (opacity) space —
+        # shape-based interpolation. slab_sdf_sum / n_valid is the average
+        # signed distance field over the sub-depths sampled within this
+        # output voxel's z-extent; it is converted to a fractional coverage
+        # raster only once, after averaging, via ``_sdf_to_coverage``.
+        slab_sdf_sum = np.zeros((ny, nx), dtype=np.float32)
+        n_valid = 0
+        for z_s in z_samples:
+            if z_s < z_extent_lo or z_s > z_extent_hi:
+                continue  # outside the true (padded) structure extent: 0 contribution
+            n_valid += 1
+            if len(sorted_z) == 1:
+                slab_sdf_sum += sdf_by_z[0]
                 continue
-    
-            smooth_xy = poly_xy #smooth_contour(poly_xy) #Avoid soothing, no gain in accuracy compared to RayStation.
-            
-            # Hole detections
-            is_hole = False
-            if i > 0:# assume the biggest area as non-hole
-                for j in range(i): # handling holes if holes do not have any island inside. 
-                    outer_path = MplPath(slice_polys[j], closed=True) 
-                    test_pts   = poly_xy[::max(1, len(poly_xy) // 5)]
-                    if outer_path.contains_points(test_pts).mean() > 0.5:
-                        is_hole = True
-                        break
-           
-            fraction = rasterize_supersampled(smooth_xy, x0, y0, dx, dy, ny, nx, N)
-    
-            if is_hole:
-                slice_fraction -= fraction
+            if z_s <= z_min:
+                slab_sdf_sum += sdf_by_z[0]           # bottom end-cap band
+            elif z_s >= z_max:
+                slab_sdf_sum += sdf_by_z[-1]           # top end-cap band
             else:
-                slice_fraction += fraction
-    
-        frac_mask[z_idx] = np.clip(slice_fraction, 0.0, 1.0) #clipping shouldn#t change anything, it should be already in [0-1]
-        
-        
+                j = int(np.searchsorted(sorted_z, z_s, side="right") - 1)
+                j = int(np.clip(j, 0, len(sorted_z) - 2))
+                z0_, z1_ = sorted_z[j], sorted_z[j + 1]
+                t = 0.0 if z1_ == z0_ else (z_s - z0_) / (z1_ - z0_)
+                slab_sdf_sum += (1.0 - t) * sdf_by_z[j] + t * sdf_by_z[j + 1]
+
+        if n_valid == 0:
+            continue  # every sub-sample fell outside the padded extent
+
+        avg_sdf = slab_sdf_sum / n_valid
+        frac_mask[z_idx] = _sdf_to_coverage(avg_sdf, dx, dy)
+
     return frac_mask
 
 
