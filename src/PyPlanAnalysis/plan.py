@@ -208,7 +208,8 @@ class PatientPlan:
             self.load()
         return get_all_structure_names(self._rtstruct_ds)
 
-
+    
+    #Not used
     @property
     def voxel_volume_cc(self) -> float:
         """Volume of one dose voxel in cc."""
@@ -294,10 +295,17 @@ class PatientPlan:
         mode = f"fractional (supersample={supersample})" if use_fractional else "binary"
         print(f"  Analysing {len(structures)} structures [{mode} mask]...")
 
-        
+        # Work on LOCAL copies of the loaded arrays/geometry for this call.
+        # 
+        # Using local variables makes analyse() idempotent with respect to
+        # self: repeated calls, in any order, with any combination of flags,
+        # always start from the same pristine self._dose_arr/self._let_arr.
+        dose_arr, dose_ds = self._dose_arr, self._dose_ds
+        let_arr,  let_ds  = self._let_arr,  self._let_ds
+
         # --- resample dose/LET only if the array exists ---
-        sitk_dose = _np_to_sitk(self._dose_arr, self._dose_ds) if self._dose_arr is not None else None
-        sitk_let  = _np_to_sitk(self._let_arr,  self._let_ds)  if self._let_arr  is not None else None
+        sitk_dose = _np_to_sitk(dose_arr, dose_ds) if dose_arr is not None else None
+        sitk_let  = _np_to_sitk(let_arr,  let_ds)  if let_arr  is not None else None
 
         grid_origin = grid_spacing = grid_shape = grid_z_positions = None
         
@@ -315,11 +323,11 @@ class PatientPlan:
            
             if sitk_dose is not None:
                 res_dose = resample_dose_on_ct(sitk_dose,self._CT_sitk)  
-                self._dose_arr = sitk.GetArrayFromImage(res_dose)     #sitk_dose	
+                dose_arr = sitk.GetArrayFromImage(res_dose)     #sitk_dose	
                 
             if sitk_let is not None:    
                 res_let = resample_dose_on_ct(sitk_let, self._CT_sitk)
-                self._let_arr = sitk.GetArrayFromImage(res_let)       #sitk_let	
+                let_arr = sitk.GetArrayFromImage(res_let)       #sitk_let	
             
             #Set grid for resampling and creating struct masks
             grid_origin = self._CT_geom['origin']
@@ -333,12 +341,12 @@ class PatientPlan:
                 print(f"  Resampling dose and LET onto custom  {grid_new} grid...")
                 
                 if sitk_dose is not None:
-                    res_dose, self._dose_arr, dose_geom, self._dose_ds = resample_dose_to_new_grid(sitk_dose,
-                                                                                            self._dose_ds,
+                    res_dose, dose_arr, dose_geom, dose_ds = resample_dose_to_new_grid(sitk_dose,
+                                                                                            dose_ds,
                                                                                             grid_new)
                 if sitk_let is not None:  
-                    res_let, self._let_arr, _, self._let_ds = resample_dose_to_new_grid (sitk_let,
-                                                                             self._let_ds,
+                    res_let, let_arr, _, let_ds = resample_dose_to_new_grid (sitk_let,
+                                                                             let_ds,
                                                                              grid_new)
                 
                 #Set grid for resampling and creating struct masks
@@ -352,11 +360,11 @@ class PatientPlan:
             print("No Resampling for dose and LET")
             
             # no CT, no resample requested — use whichever grid (dose preferred, else LET) is available
-            ref_ds = self._dose_ds if self._dose_ds is not None else self._let_ds
+            ref_ds = dose_ds if dose_ds is not None else let_ds
             if ref_ds is not None:
                 grid_origin, grid_spacing = get_grid_geometry(ref_ds)
-                grid_shape       = (self._dose_arr.shape if self._dose_arr is not None
-                                    else self._let_arr.shape)
+                grid_shape       = (dose_arr.shape if dose_arr is not None
+                                    else let_arr.shape)
                 z_offsets        = [float(v) for v in ref_ds.GridFrameOffsetVector]
                 grid_z_positions = np.array([grid_origin[2] + o for o in z_offsets])
         
@@ -371,7 +379,12 @@ class PatientPlan:
         dlvh_data_diff   = {}         # {struct: (H, d_edges, l_edges)}
         dlvh_data_cum   = {}          # {struct: (H, d_edges, l_edges)}
 
-        vol_cc = self.voxel_volume_cc
+        # Voxel volume MUST come from the grid actually used to build the
+        # mask (grid_spacing, set above per the branch actually taken), not
+        # from self.voxel_volume_cc.
+        
+        vol_cc = float(np.prod(grid_spacing)) / 1000.0
+        
         for struct_name in structures:
             print(f"    → {struct_name}")
 
@@ -415,13 +428,13 @@ class PatientPlan:
             ab     = radiobio_cfg.get_alpha_beta(struct_name)
             geud_a = radiobio_cfg.get_geud_a(struct_name)
             
-            dose_vox = self._dose_arr[mask > 0] if self._dose_arr is not None else None
-            let_vox  = self._let_arr[mask > 0]  if self._let_arr  is not None else None 
+            dose_vox = dose_arr[mask > 0] if dose_arr is not None else None
+            let_vox  = let_arr[mask > 0]  if let_arr  is not None else None 
             
-            if self._dose_arr is not None:
-                dose_vox = self._dose_arr[mask>0]
-            if self._let_arr is not None: 
-                let_vox  = self._let_arr[mask>0]
+            if dose_arr is not None:
+                dose_vox = dose_arr[mask>0]
+            if let_arr is not None: 
+                let_vox  = let_arr[mask>0]
             
             # effective volume: sum of fractional weights × voxel volume
             if weights is not None:
@@ -450,12 +463,11 @@ class PatientPlan:
             dvh_data[struct_name] = {}
            
             # ---- Physical dose ----
-            min_fract = 0.5 #minimum % below which we do not count W for min or max
-            if self._dose_arr is not None:
+            
+            if dose_arr is not None:
                 row.update(compute_dvh_metrics(dose_vox, vol_cc, "Phys",
                                                metric_cfg, ab, geud_a,
-                                               weights=weights,n_fractions = self.n_fractions),
-                                               min_voxel_fract =  min_fract)
+                                               weights=weights,n_fractions = self.n_fractions))
                 
                 edges, cum = compute_cumulative_histogram(dose_vox,
                                                           metric_cfg.dvh_bins,
@@ -467,22 +479,20 @@ class PatientPlan:
                 lbl_fixed  = f"RBE{rbe_cfg.fixed_rbe}"
                 row.update(compute_dvh_metrics(dose_fixed, vol_cc,  lbl_fixed ,
                                                metric_cfg, ab, geud_a,
-                                               weights=weights,n_fractions = self.n_fractions),
-                                               min_voxel_fract = min_fract)
+                                               weights=weights,n_fractions = self.n_fractions))
                 edges_f, cum_f = compute_cumulative_histogram(dose_fixed,
                                                                metric_cfg.dvh_bins,
                                                                weights=weights)
                 dvh_data[struct_name][lbl_fixed] = (edges_f, cum_f)
                 
             
-                if self._let_arr is not None:
+                if let_arr is not None:
                     # ---- Variable RBE (per model) ----
                     for model in rbe_cfg.models:
                         rbe_dose_vox = compute_rbe_dose(dose_vox, let_vox, self.n_fractions, ab, model)
                         row.update(compute_dvh_metrics(rbe_dose_vox, vol_cc, model,
                                                        metric_cfg, ab, geud_a,
-                                                       weights=weights,n_fractions = self.n_fractions),
-                                                       min_voxel_fract =  min_fract)
+                                                       weights=weights,n_fractions = self.n_fractions))
                         e_m, c_m = compute_cumulative_histogram(rbe_dose_vox,
                                                                  metric_cfg.dvh_bins,
                                                                  weights=weights)
@@ -497,8 +507,7 @@ class PatientPlan:
                         row.update(compute_dvh_metrics(
                             dose_vox[high_let_idx], vol_cc,
                             "highLET_fixed_rbe", metric_cfg, ab, geud_a,
-                            weights=w_high,n_fractions = self.n_fractions),
-                            min_voxel_fract =  min_fract)
+                            weights=w_high,n_fractions = self.n_fractions))
 
                     # ---- 2-D DLVH ----
                     H_diff, H_cum, d_edges, l_edges_2d = compute_2d_histogram(
@@ -510,7 +519,7 @@ class PatientPlan:
                     dlvh_data_cum[struct_name] = (H_cum, d_edges, l_edges_2d)
                     
                     
-            if self._let_arr is not None:       
+            if let_arr is not None:       
                 # ---- LET metrics & LVH ----
                 row.update(compute_let_metrics(let_vox, dose_vox, metric_cfg.lx,
                                                weights=weights))
