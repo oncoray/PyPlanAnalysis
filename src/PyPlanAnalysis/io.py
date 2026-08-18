@@ -1166,6 +1166,62 @@ def rasterize_slice_coverage(slice_polys, x0, y0, dx, dy, ny, nx, N):
     return np.clip(coverage, 0.0, 1.0)
 
 
+def _directional_pixel_size(sdf: np.ndarray, dx: float, dy: float) -> np.ndarray:
+    """
+    Per-pixel local antialiasing width for a possibly anisotropic
+    (dx != dy) in-plane grid, used in place of a single scalar
+    ``(dx + dy) / 2`` estimate.
+
+    TECHNICAL JUSTIFICATION: an axis-aligned rectangular pixel of size
+    dx (x) by dy (y), sliced by a straight boundary crossing it at angle
+    theta to the x-axis, spans a length dx*|cos theta| + dy*|sin theta|
+    along the boundary-normal direction — the standard "screen-space
+    derivative" / fwidth footprint used for antialiasing distance-field
+    edges (e.g. Green, "Improved Alpha-Tested Magnenta Field Textures",
+    SIGGRAPH 2007). A flat (dx + dy) / 2 average is only correct for the
+    two axis-aligned cases (theta = 0 or 90 deg) and, for anisotropic
+    grids, silently uses the WRONG antialiasing width everywhere the
+    boundary isn't axis-aligned — e.g. with dx=0.5 mm, dy=3 mm, a
+    boundary running mostly along y (normal mostly along x, theta~0) has
+    a true footprint of ~0.5 mm, not the averaged 1.75 mm, so the old
+    code was over-smoothing/over-blurring the reconstructed edge in the
+    fine (x) direction and under-resolving it relative to the coarse (y)
+    direction.
+
+    Because a proper Euclidean SDF has unit-magnitude gradient almost
+    everywhere (|grad sdf| = 1), the boundary-normal direction at each
+    pixel can be read directly off the SDF's own gradient, without any
+    extra geometry — this is exactly what makes an SDF representation
+    convenient here, on top of its use for shape-based z-interpolation.
+
+    Parameters
+    ----------
+    sdf      : np.ndarray, shape (ny, nx) — signed distance field, mm.
+        Only its local gradient DIRECTION is used, not its magnitude.
+    dx, dy   : float — in-plane voxel spacing, mm.
+
+    Returns
+    -------
+    np.ndarray, float32, shape (ny, nx)
+        Local antialiasing width in mm, one value per pixel. Falls back
+        to the isotropic ``(dx + dy) / 2`` estimate wherever the
+        gradient is degenerate (e.g. deep in a uniform interior/exterior
+        region, or a perfectly flat plateau) — irrelevant there anyway,
+        since the antialiasing ramp saturates to 0 or 1 far from the
+        boundary regardless of its width.
+    """
+    gy, gx = np.gradient(sdf, dy, dx)
+    norm = np.sqrt(gx * gx + gy * gy)
+    fallback = (dx + dy) / 2.0
+
+    safe_norm = np.where(norm > 1e-6, norm, 1.0)
+    nx = np.abs(gx) / safe_norm
+    ny = np.abs(gy) / safe_norm
+    directional = dx * nx + dy * ny
+
+    return np.where(norm > 1e-6, directional, fallback).astype(np.float32)
+
+
 def _coverage_to_sdf(coverage: np.ndarray, dx: float, dy: float,
                       subpixel_refine: bool = True) -> np.ndarray:
     """
@@ -1186,16 +1242,21 @@ def _coverage_to_sdf(coverage: np.ndarray, dx: float, dy: float,
     coverage : np.ndarray, shape (ny, nx)
         Fractional in-plane coverage map in [0, 1], as produced by
         ``rasterize_slice_coverage``.
-    dx, dy   : float — in-plane voxel spacing, mm. Used as the EDT
-        sampling so distances come out in physical mm, not pixels.
+    dx, dy   : float — in-plane voxel spacing, mm. Passed as the EDT
+        ``sampling`` (already correctly anisotropic-aware there) and,
+        when ``subpixel_refine`` is set, used via
+        ``_directional_pixel_size`` to scale the boundary refinement per
+        pixel according to local boundary orientation rather than a
+        single isotropic average — see that function's docstring.
     subpixel_refine : bool
         If True, overwrite the boundary-adjacent band of the distance
-        transform (|sdf| <= 1 pixel) with a direct estimate derived from
-        the antialiased coverage fraction itself, (coverage - 0.5) *
-        pixel_size. The plain Euclidean distance transform only "sees"
-        the binarised (coverage >= 0.5) raster and is therefore blind to
-        sub-pixel boundary position; this refinement folds that
-        information back in near the boundary where it matters most.
+        transform (|sdf| <= local pixel footprint) with a direct
+        estimate derived from the antialiased coverage fraction itself,
+        (coverage - 0.5) * local_pixel_size. The plain Euclidean
+        distance transform only "sees" the binarised (coverage >= 0.5)
+        raster and is therefore blind to sub-pixel boundary position;
+        this refinement folds that information back in near the
+        boundary where it matters most.
 
     Returns
     -------
@@ -1217,9 +1278,9 @@ def _coverage_to_sdf(coverage: np.ndarray, dx: float, dy: float,
     sdf = (dist_in - dist_out).astype(np.float32)
 
     if subpixel_refine:
-        pixel_size = (dx + dy) / 2.0
-        boundary_band = np.abs(sdf) <= pixel_size
-        refined = (coverage.astype(np.float32) - 0.5) * pixel_size
+        pixel_size_map = _directional_pixel_size(sdf, dx, dy)
+        boundary_band = np.abs(sdf) <= pixel_size_map
+        refined = (coverage.astype(np.float32) - 0.5) * pixel_size_map
         sdf = np.where(boundary_band, refined, sdf)
 
     return sdf
@@ -1230,11 +1291,15 @@ def _sdf_to_coverage(sdf: np.ndarray, dx: float, dy: float) -> np.ndarray:
     Reconstruct an antialiased fractional coverage raster from a signed
     distance field, the inverse operation of ``_coverage_to_sdf``.
 
-    A one-pixel-wide linear ramp is used to convert distance-to-boundary
-    into partial coverage (sdf = 0 at the boundary -> 0.5; sdf >=
-    +half a pixel, fully inside -> 1.0; sdf <= -half a pixel, fully
-    outside -> 0.0), which is the standard antialiasing reconstruction
-    used for SDF-represented shapes.
+    A locally boundary-orientation-aware ramp (see
+    ``_directional_pixel_size``) is used to convert distance-to-boundary
+    into partial coverage — sdf = 0 at the boundary -> 0.5; sdf >=
+    +half the local pixel footprint, fully inside -> 1.0; sdf <= -half
+    the local pixel footprint, fully outside -> 0.0 — the standard
+    antialiasing reconstruction used for SDF-represented shapes,
+    generalised from a single isotropic pixel width to a per-pixel
+    directional one so anisotropic grids (dx != dy) get the correct
+    ramp width regardless of local boundary orientation.
 
     Parameters
     ----------
@@ -1246,9 +1311,11 @@ def _sdf_to_coverage(sdf: np.ndarray, dx: float, dy: float) -> np.ndarray:
     -------
     np.ndarray, float32, shape (ny, nx), values in [0, 1]
     """
-    pixel_size = (dx + dy) / 2.0
-    coverage = 0.5 + sdf / pixel_size
+    pixel_size_map = _directional_pixel_size(sdf, dx, dy)
+    coverage = 0.5 + sdf / pixel_size_map
     return np.clip(coverage, 0.0, 1.0).astype(np.float32)
+
+
 
 
 def _adaptive_supersample(contours, dx, dy, base_N, max_N=12, target_subsamples=16):
@@ -1489,5 +1556,3 @@ def get_fractional_mask_on_grid(struct_name: str,
         frac_mask[z_idx] = _sdf_to_coverage(avg_sdf, dx, dy)
 
     return frac_mask
-
-

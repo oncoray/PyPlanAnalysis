@@ -87,9 +87,9 @@ results = plan.analyse(
     metric_cfg   = metric_cfg,
     radiobio_cfg = radiobio_cfg,
     resample_on_CT  = 0,
-    resample_on_custom_grid    = 1,
+    resample_on_custom_grid    = 0,
     use_fractional = 1, 
-    supersample  = 4,
+    supersample  = 2,
     supersample_z  = None,
     max_supersample = 12
 )
