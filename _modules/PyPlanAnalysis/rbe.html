@@ -236,7 +236,7 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for PyPlanAnalysis.rbe</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">PyPlanAnalysis.rbe</span>
 <span class="sd">==============</span>
 <span class="sd">Variable and fixed RBE models for proton therapy.</span>
@@ -249,7 +249,7 @@
 <span class="sd">McNamara   : McNamara et al., Med Phys 42(2):678-89, 2015</span>
 <span class="sd">Wedenberg  : Wedenberg et al., Acta Oncol 52(3):580-8, 2013</span>
 <span class="sd">Carabe     : Carabe et al., Br J Radiol 85(1011):304-14, 2012</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
@@ -263,30 +263,30 @@
 <a class="viewcode-back" href="../../api/rbe.html#PyPlanAnalysis.rbe.RBEConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RBEConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Configure which RBE models to run.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    models : list of str</span>
-<span class="sd">        Any subset of {&quot;mcnamara&quot;, &quot;wedenberg&quot;, &quot;carabe&quot;}.</span>
+<span class="sd">        Any subset of {"mcnamara", "wedenberg", "carabe"}.</span>
 <span class="sd">        Default: all three.</span>
 <span class="sd">    fixed_rbe : float</span>
 <span class="sd">        Constant RBE value used for the RBE×fixed calculation.</span>
 <span class="sd">        Default: 1.1</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">models</span>    <span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;mcnamara&quot;</span><span class="p">,</span>
-                                                       <span class="s2">&quot;wedenberg&quot;</span><span class="p">,</span>
-                                                       <span class="s2">&quot;carabe&quot;</span><span class="p">,</span>
-                                                       <span class="s2">&quot;linear&quot;</span><span class="p">])</span>
+<span class="sd">    """</span>
+    <span class="n">models</span>    <span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s2">"mcnamara"</span><span class="p">,</span>
+                                                       <span class="s2">"wedenberg"</span><span class="p">,</span>
+                                                       <span class="s2">"carabe"</span><span class="p">,</span>
+                                                       <span class="s2">"linear"</span><span class="p">])</span>
     <span class="n">fixed_rbe</span> <span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.1</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">valid</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">VARIABLE_RBE_MODELS</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="n">bad</span>   <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">)</span> <span class="o">-</span> <span class="n">valid</span>
         <span class="k">if</span> <span class="n">bad</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown RBE model(s): </span><span class="si">{</span><span class="n">bad</span><span class="si">}</span><span class="s2">. &quot;</span>
-                             <span class="sa">f</span><span class="s2">&quot;Valid options: </span><span class="si">{</span><span class="n">valid</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown RBE model(s): </span><span class="si">{</span><span class="n">bad</span><span class="si">}</span><span class="s2">. "</span>
+                             <span class="sa">f</span><span class="s2">"Valid options: </span><span class="si">{</span><span class="n">valid</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
 
 
 
@@ -297,7 +297,7 @@
 <div class="viewcode-block" id="rbe_fixed">
 <a class="viewcode-back" href="../../api/rbe.html#PyPlanAnalysis.rbe.rbe_fixed">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">rbe_fixed</span><span class="p">(</span><span class="n">dose_phys</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">rbe</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return dose_phys * rbe (elementwise).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Return dose_phys * rbe (elementwise)."""</span>
     <span class="k">return</span> <span class="n">dose_phys</span> <span class="o">*</span> <span class="n">rbe</span></div>
 
 
@@ -307,7 +307,7 @@
 <span class="c1"># ============================================================</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_safe_dose</span><span class="p">(</span><span class="n">dose</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Avoid division by zero in dose arrays.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Avoid division by zero in dose arrays."""</span>
     <span class="n">d</span> <span class="o">=</span> <span class="n">dose</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">d</span><span class="p">[</span><span class="n">d</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-9</span>
     <span class="k">return</span> <span class="n">d</span>
@@ -319,7 +319,7 @@
                  <span class="n">n_fractions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                  <span class="n">alpha_beta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                  <span class="n">coeff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Linear variable-RBE model: RBE = 1 + coeff * LETd.</span>
 
 <span class="sd">    Parameters</span>
@@ -333,7 +333,7 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    np.ndarray  [Gy(RBE)]</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">rbe</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">coeff</span> <span class="o">*</span> <span class="n">let_d</span>   
     <span class="k">return</span> <span class="n">dose_phys</span> <span class="o">*</span> <span class="n">rbe</span></div>
 
@@ -344,10 +344,10 @@
                  <span class="n">let_d</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                  <span class="n">n_fractions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                  <span class="n">alpha_beta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    McNamara et al. (2015) variable RBE model.</span>
 <span class="sd">    Parameters taken from Table I of the original paper.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     
     <span class="n">fraction_dose</span> <span class="o">=</span> <span class="n">dose_phys</span><span class="o">/</span><span class="n">n_fractions</span>
     
@@ -374,12 +374,12 @@
                   <span class="n">let_d</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                   <span class="n">n_fractions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                   <span class="n">alpha_beta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Wedenberg et al. (2013) variable RBE model.</span>
 
 <span class="sd">    alpha/alpha_x = 1 + q * LETd / (alpha/beta)_x   with q = 0.434</span>
 <span class="sd">    beta = beta_x  (constant)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">fraction_dose</span> <span class="o">=</span> <span class="n">dose_phys</span><span class="o">/</span><span class="n">n_fractions</span>
     <span class="n">q</span> <span class="o">=</span> <span class="mf">0.434</span>
     <span class="n">ab</span> <span class="o">=</span> <span class="n">alpha_beta</span>
@@ -398,11 +398,11 @@
                <span class="n">let_d</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                <span class="n">n_fractions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                <span class="n">alpha_beta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Carabe et al. (2012) variable RBE model.</span>
 
 <span class="sd">    p=0.843, r=0.154, s=1.09, t=0.006</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">fraction_dose</span> <span class="o">=</span> <span class="n">dose_phys</span><span class="o">/</span><span class="n">n_fractions</span>
     <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span><span class="p">,</span> <span class="n">p4</span> <span class="o">=</span> <span class="mf">0.843</span><span class="p">,</span> <span class="mf">0.154</span><span class="p">,</span> <span class="mf">1.09</span><span class="p">,</span> <span class="mf">0.006</span>
     <span class="n">AB</span> <span class="o">=</span> <span class="mf">2.686</span>
@@ -422,10 +422,10 @@
 <span class="c1"># ============================================================</span>
 
 <span class="n">VARIABLE_RBE_MODELS</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;mcnamara&quot;</span> <span class="p">:</span> <span class="n">rbe_mcnamara</span><span class="p">,</span>
-    <span class="s2">&quot;wedenberg&quot;</span><span class="p">:</span> <span class="n">rbe_wedenberg</span><span class="p">,</span>
-    <span class="s2">&quot;carabe&quot;</span>   <span class="p">:</span> <span class="n">rbe_carabe</span><span class="p">,</span>
-    <span class="s2">&quot;linear&quot;</span>   <span class="p">:</span> <span class="n">rbe_linear</span>
+    <span class="s2">"mcnamara"</span> <span class="p">:</span> <span class="n">rbe_mcnamara</span><span class="p">,</span>
+    <span class="s2">"wedenberg"</span><span class="p">:</span> <span class="n">rbe_wedenberg</span><span class="p">,</span>
+    <span class="s2">"carabe"</span>   <span class="p">:</span> <span class="n">rbe_carabe</span><span class="p">,</span>
+    <span class="s2">"linear"</span>   <span class="p">:</span> <span class="n">rbe_linear</span>
 <span class="p">}</span>
 
 
@@ -436,7 +436,7 @@
                      <span class="n">n_fractions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                      <span class="n">alpha_beta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                      <span class="n">model</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute variable RBE-weighted dose for a single model.</span>
 
 <span class="sd">    Parameters</span>
@@ -444,15 +444,15 @@
 <span class="sd">    dose_phys  : physical dose array [Gy]</span>
 <span class="sd">    let_d      : LETd array [keV/µm], same shape as dose_phys</span>
 <span class="sd">    alpha_beta : α/β ratio [Gy] for this structure</span>
-<span class="sd">    model      : one of &quot;mcnamara&quot;, &quot;wedenberg&quot;, &quot;carabe&quot;</span>
+<span class="sd">    model      : one of "mcnamara", "wedenberg", "carabe"</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    rbe_dose : np.ndarray  [Gy(RBE)]</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">model</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">VARIABLE_RBE_MODELS</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown model &#39;</span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
-                         <span class="sa">f</span><span class="s2">&quot;Choose from </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">VARIABLE_RBE_MODELS</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown model '</span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2">'. "</span>
+                         <span class="sa">f</span><span class="s2">"Choose from </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">VARIABLE_RBE_MODELS</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">VARIABLE_RBE_MODELS</span><span class="p">[</span><span class="n">model</span><span class="p">](</span><span class="n">dose_phys</span><span class="p">,</span> <span class="n">let_d</span><span class="p">,</span> <span class="n">n_fractions</span><span class="p">,</span> <span class="n">alpha_beta</span><span class="p">)</span></div>
 
 </pre></div>

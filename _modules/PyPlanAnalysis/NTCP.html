@@ -237,13 +237,13 @@
         <article role="main" id="furo-main-content">
           <h1>Source code for PyPlanAnalysis.NTCP</h1><div class="highlight"><pre>
 <span></span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 <span class="sd">PyPlanAnalysis.NTCP.py</span>
 <span class="sd">==============</span>
 <span class="sd">computes different NTCP following details in /Utils/NTCPModels_params.xlsx. </span>
 <span class="sd">It works both with variable and fixed RBE models for proton therapy.</span>
 
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 
 <span class="c1"># script to calculate NTCP based on DVH and clincial parameters</span>
@@ -258,20 +258,20 @@
 <div class="viewcode-block" id="default_ntcp_params_path">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.default_ntcp_params_path">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">default_ntcp_params_path</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Path to the NTCP model-parameter workbook bundled with the package</span>
 <span class="sd">    (PyPlanAnalysis/data/NTCPModels_params.xlsx). Used automatically by</span>
 <span class="sd">    NTCPModelBase when no explicit ``df_models_path`` is supplied, so</span>
 <span class="sd">    installed users get working NTCP calculations out of the box.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">resources</span><span class="o">.</span><span class="n">files</span><span class="p">(</span><span class="s2">&quot;PyPlanAnalysis.data&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;NTCPModels_params.xlsx&quot;</span><span class="p">)</span></div>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">resources</span><span class="o">.</span><span class="n">files</span><span class="p">(</span><span class="s2">"PyPlanAnalysis.data"</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">"NTCPModels_params.xlsx"</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="NTCPConfig">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCPConfig">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">NTCPConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Selects which NTCP toxicity models to compute in</span>
 <span class="sd">    ``AnalysisResults.CalcNTCP()``.</span>
 
@@ -285,71 +285,71 @@
 <span class="sd">    roi_overrides : dict</span>
 <span class="sd">        Optional ``{model_name: roi_name}`` mapping. When a model name</span>
 <span class="sd">        is present here, its exact ``roi_name`` (must match a value in</span>
-<span class="sd">        ``metrics_df[&quot;ROI_Name&quot;]``) is used directly instead of the</span>
+<span class="sd">        ``metrics_df["ROI_Name"]``) is used directly instead of the</span>
 <span class="sd">        ``OAR`` substring match from the parameter workbook — lets you</span>
 <span class="sd">        point a model at a specific contoured ROI on a per-patient</span>
-<span class="sd">        basis, even if it doesn&#39;t match the workbook&#39;s OAR column.</span>
-<span class="sd">        Default: empty (use the workbook&#39;s OAR-based matching for</span>
+<span class="sd">        basis, even if it doesn't match the workbook's OAR column.</span>
+<span class="sd">        Default: empty (use the workbook's OAR-based matching for</span>
 <span class="sd">        every model).</span>
 <span class="sd">    ctv_name : str or None</span>
-<span class="sd">        Optional exact ``ROI_Name`` to use as &quot;the CTV&quot; reference for</span>
+<span class="sd">        Optional exact ``ROI_Name`` to use as "the CTV" reference for</span>
 <span class="sd">        geometry-based ipsi/contra selection (see</span>
 <span class="sd">        ``NTCPModelBase.define_side``). Default: None, which falls</span>
 <span class="sd">        back to the first ROI (in table order) whose name contains</span>
-<span class="sd">        &quot;CTV&quot; (case-insensitive).</span>
+<span class="sd">        "CTV" (case-insensitive).</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
 <span class="sd">    Each model name maps to one ``NTCP__*`` implementation function in</span>
 <span class="sd">    this module (brain/head-and-neck late- and acute-toxicity endpoints</span>
 <span class="sd">    from Dutz, De Marzi, Burman, Gondi, Kong, Lee, Bender and Batth).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">roi_overrides</span> <span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">ctv_name</span>      <span class="p">:</span> <span class="nb">str</span>  <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">models</span>    <span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:[</span><span class="s1">&#39;Alopecia_G1_12m__1&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Alopecia_G1_12m__2&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Alopecia_G1_24m__1&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Alopecia_G1_24m__2&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Alopecia_G1_acute&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Alopecia_G2_acute&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Blindness_5y__Chiasma&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Blindness_5y__OpticNerve_ipsi&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Blindness_5y_OpticNerve_contra&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;BrainNecrosis_5y__Brain-CTV&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;BrainNecrosis_5y__BrainStem&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;CataractRequiringIntervention_5y__Lens_ipsi&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;CataractRequiringIntervention_5y__Lens_contra&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;DelayedRecall_1_5y&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;EndocrineDysfunction_late&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Erythema_G1_acute&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Erythema_G2_acute&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Fatigue_G1_24m&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Fatigue_G1_acute&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;HearingImpairment_G1_12m__1__Cochlea_ipsi&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;HearingImpairment_G1_12m__1__Cochlea_contra&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;HearingImpairment_G1_12m__2__Cochlea_ipsi&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;HearingImpairment_G1_12m__2__Cochlea_contra&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;HearingImpairment_G1_24m__Cochlea_ipsi&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;HearingImpairment_G1_24m__Cochlea_contra&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;HearingLoss_late__Cochlea_ipsi&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;HearingLoss_late__Cochlea_contra&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;MemoryImpairment_G1_12m&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;MemoryImpairment_G1_24m&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;MemoryImpairment_G2_12m&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;OcularToxicity_G2_acute__LacrimalGland_ipsi&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;OcularToxicity_G2_acute__LacrimalGland_contra&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;TemporalLobeInjury_5y__TemporalLobe_ipsi&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;TemporalLobeInjury_5y__TemporalLobe_contra&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Tinnitus_G2_late__Cochlea_ipsi&#39;</span><span class="p">,</span>
-        <span class="s1">&#39;Tinnitus_G2_late__Cochlea_contra&#39;</span><span class="p">])</span></div>
+    <span class="n">models</span>    <span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:[</span><span class="s1">'Alopecia_G1_12m__1'</span><span class="p">,</span>
+        <span class="s1">'Alopecia_G1_12m__2'</span><span class="p">,</span>
+        <span class="s1">'Alopecia_G1_24m__1'</span><span class="p">,</span>
+        <span class="s1">'Alopecia_G1_24m__2'</span><span class="p">,</span>
+        <span class="s1">'Alopecia_G1_acute'</span><span class="p">,</span>
+        <span class="s1">'Alopecia_G2_acute'</span><span class="p">,</span>
+        <span class="s1">'Blindness_5y__Chiasma'</span><span class="p">,</span>
+        <span class="s1">'Blindness_5y__OpticNerve_ipsi'</span><span class="p">,</span>
+        <span class="s1">'Blindness_5y_OpticNerve_contra'</span><span class="p">,</span>
+        <span class="s1">'BrainNecrosis_5y__Brain-CTV'</span><span class="p">,</span>
+        <span class="s1">'BrainNecrosis_5y__BrainStem'</span><span class="p">,</span>
+        <span class="s1">'CataractRequiringIntervention_5y__Lens_ipsi'</span><span class="p">,</span>
+        <span class="s1">'CataractRequiringIntervention_5y__Lens_contra'</span><span class="p">,</span>
+        <span class="s1">'DelayedRecall_1_5y'</span><span class="p">,</span>
+        <span class="s1">'EndocrineDysfunction_late'</span><span class="p">,</span>
+        <span class="s1">'Erythema_G1_acute'</span><span class="p">,</span>
+        <span class="s1">'Erythema_G2_acute'</span><span class="p">,</span>
+        <span class="s1">'Fatigue_G1_24m'</span><span class="p">,</span>
+        <span class="s1">'Fatigue_G1_acute'</span><span class="p">,</span>
+        <span class="s1">'HearingImpairment_G1_12m__1__Cochlea_ipsi'</span><span class="p">,</span>
+        <span class="s1">'HearingImpairment_G1_12m__1__Cochlea_contra'</span><span class="p">,</span>
+        <span class="s1">'HearingImpairment_G1_12m__2__Cochlea_ipsi'</span><span class="p">,</span>
+        <span class="s1">'HearingImpairment_G1_12m__2__Cochlea_contra'</span><span class="p">,</span>
+        <span class="s1">'HearingImpairment_G1_24m__Cochlea_ipsi'</span><span class="p">,</span>
+        <span class="s1">'HearingImpairment_G1_24m__Cochlea_contra'</span><span class="p">,</span>
+        <span class="s1">'HearingLoss_late__Cochlea_ipsi'</span><span class="p">,</span>
+        <span class="s1">'HearingLoss_late__Cochlea_contra'</span><span class="p">,</span>
+        <span class="s1">'MemoryImpairment_G1_12m'</span><span class="p">,</span>
+        <span class="s1">'MemoryImpairment_G1_24m'</span><span class="p">,</span>
+        <span class="s1">'MemoryImpairment_G2_12m'</span><span class="p">,</span>
+        <span class="s1">'OcularToxicity_G2_acute__LacrimalGland_ipsi'</span><span class="p">,</span>
+        <span class="s1">'OcularToxicity_G2_acute__LacrimalGland_contra'</span><span class="p">,</span>
+        <span class="s1">'TemporalLobeInjury_5y__TemporalLobe_ipsi'</span><span class="p">,</span>
+        <span class="s1">'TemporalLobeInjury_5y__TemporalLobe_contra'</span><span class="p">,</span>
+        <span class="s1">'Tinnitus_G2_late__Cochlea_ipsi'</span><span class="p">,</span>
+        <span class="s1">'Tinnitus_G2_late__Cochlea_contra'</span><span class="p">])</span></div>
 
 
 <span class="c1"># ____________________________________________________________________________</span>
 <div class="viewcode-block" id="NTCPModelBase">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCPModelBase">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NTCPModelBase</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Loads one NTCP model&#39;s metadata from the parameter workbook and</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Loads one NTCP model's metadata from the parameter workbook and</span>
 <span class="sd">    dispatches to its implementation function.</span>
 
 <span class="sd">    Parameters</span>
@@ -363,28 +363,28 @@
 <span class="sd">        ``default_ntcp_params_path()``.</span>
 <span class="sd">    roi_name : str, optional</span>
 <span class="sd">        Exact ``ROI_Name`` to use for this model, bypassing the</span>
-<span class="sd">        workbook&#39;s ``OAR`` substring match entirely. Must match a</span>
-<span class="sd">        value in ``metrics_df[&quot;ROI_Name&quot;]`` (case-insensitive exact</span>
+<span class="sd">        workbook's ``OAR`` substring match entirely. Must match a</span>
+<span class="sd">        value in ``metrics_df["ROI_Name"]`` (case-insensitive exact</span>
 <span class="sd">        match). Default: None (use OAR-based matching).</span>
 <span class="sd">    ctv_name : str, optional</span>
-<span class="sd">        Exact ``ROI_Name`` to treat as &quot;the CTV&quot; for geometry-based</span>
+<span class="sd">        Exact ``ROI_Name`` to treat as "the CTV" for geometry-based</span>
 <span class="sd">        ipsi/contra selection. Default: None, which falls back to the</span>
-<span class="sd">        first ROI (in table order) whose name contains &quot;CTV&quot;.</span>
+<span class="sd">        first ROI (in table order) whose name contains "CTV".</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    OAR_name : str</span>
 <span class="sd">        Organ-at-risk name this model applies to.</span>
 <span class="sd">    numberOfVariables : int</span>
-<span class="sd">        Number of covariates the model&#39;s implementation function expects.</span>
+<span class="sd">        Number of covariates the model's implementation function expects.</span>
 <span class="sd">    parameterNames : list of str</span>
 <span class="sd">        DVH/LVH metric column-name suffixes to pull from the metrics</span>
 <span class="sd">        DataFrame for each covariate, in order.</span>
-<span class="sd">    side : {&quot;ipsi&quot;, &quot;contra&quot;, None}</span>
+<span class="sd">    side : {"ipsi", "contra", None}</span>
 <span class="sd">        Laterality selection rule, inferred from ``model_name``.</span>
 <span class="sd">    impl_fn : callable</span>
-<span class="sd">        The ``NTCP__*`` function implementing this model&#39;s formula.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        The ``NTCP__*`` function implementing this model's formula.</span>
+<span class="sd">    """</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">,</span> <span class="n">df_models_path</span><span class="p">,</span> <span class="n">roi_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ctv_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">model_name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">roi_name_override</span> <span class="o">=</span> <span class="n">roi_name</span>
@@ -393,87 +393,87 @@
             <span class="n">df_models_path</span> <span class="o">=</span> <span class="n">default_ntcp_params_path</span><span class="p">()</span>
 
         <span class="n">df_models</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="n">df_models_path</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">numberOfVariables</span> <span class="o">=</span> <span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;numberOfVariables&quot;</span><span class="p">][</span><span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">]</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">numberOfVariables</span> <span class="o">=</span> <span class="n">df_models</span><span class="p">[</span><span class="s2">"numberOfVariables"</span><span class="p">][</span><span class="n">df_models</span><span class="p">[</span><span class="s2">"model_name"</span><span class="p">]</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span> <span class="o">=</span>  <span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;OAR&quot;</span><span class="p">][</span><span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">]</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span> <span class="o">=</span>  <span class="n">df_models</span><span class="p">[</span><span class="s2">"OAR"</span><span class="p">][</span><span class="n">df_models</span><span class="p">[</span><span class="s2">"model_name"</span><span class="p">]</span><span class="o">==</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span> <span class="o">=</span> <span class="kc">True</span>
         
-        <span class="k">if</span> <span class="s2">&quot;ipsi&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">=</span> <span class="s2">&quot;ipsi&quot;</span>
-        <span class="k">elif</span> <span class="s2">&quot;contra&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">=</span> <span class="s2">&quot;contra&quot;</span>
+        <span class="k">if</span> <span class="s2">"ipsi"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">=</span> <span class="s2">"ipsi"</span>
+        <span class="k">elif</span> <span class="s2">"contra"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">=</span> <span class="s2">"contra"</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">=</span> <span class="kc">None</span>
             
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">numberOfVariables</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;parameterName_&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)][</span><span class="n">df_models</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">]</span><span class="o">==</span><span class="n">model_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> 
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df_models</span><span class="p">[</span><span class="s2">"parameterName_"</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)][</span><span class="n">df_models</span><span class="p">[</span><span class="s2">"model_name"</span><span class="p">]</span><span class="o">==</span><span class="n">model_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> 
 
         <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">npNan</span> <span class="c1">#eventuell auskommentieren</span>
-        <span class="k">if</span> <span class="s2">&quot;Alopecia_G1_12m__1&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">"Alopecia_G1_12m__1"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Alopecia_G1_12m__1</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Alopecia_G1_12m__2&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Alopecia_G1_12m__2"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Alopecia_G1_12m__2</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Alopecia_G1_24m__1&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Alopecia_G1_24m__1"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Alopecia_G1_24m__1</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Alopecia_G1_24m__2&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Alopecia_G1_24m__2"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Alopecia_G1_24m__2</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Alopecia_G1_acute&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Alopecia_G1_acute"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Alopecia_G1_acute</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Alopecia_G2_acute&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Alopecia_G2_acute"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Alopecia_G2_acute</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Blindness_5y&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Blindness_5y"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Blindness_5y</span> 
-        <span class="k">elif</span> <span class="s2">&quot;BrainNecrosis_5y&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"BrainNecrosis_5y"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__BrainNecrosis_5y</span> 
-        <span class="k">elif</span> <span class="s2">&quot;CataractRequiringIntervention_5y&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"CataractRequiringIntervention_5y"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__CataractRequiringIntervention_5y</span> 
-        <span class="k">elif</span> <span class="s2">&quot;DelayedRecall_1_5y&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"DelayedRecall_1_5y"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__DelayedRecall_1_5y</span> 
-        <span class="k">elif</span> <span class="s2">&quot;EndocrineDysfunction_late&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"EndocrineDysfunction_late"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__EndocrineDysfunction_late</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Erythema_G1_acute&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Erythema_G1_acute"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Erythema_G1_acute</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Erythema_G2_acute&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Erythema_G2_acute"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Erythema_G2_acute</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Fatigue_G1_24m&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Fatigue_G1_24m"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Fatigue_G1_24m</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Fatigue_G1_acute&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Fatigue_G1_acute"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Fatigue_G1_acute</span> 
-        <span class="k">elif</span> <span class="s2">&quot;HearingImpairment_G1_12m__1&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"HearingImpairment_G1_12m__1"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__HearingImpairment_G1_12m__1</span> 
-        <span class="k">elif</span> <span class="s2">&quot;HearingImpairment_G1_12m__2&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"HearingImpairment_G1_12m__2"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__HearingImpairment_G1_12m__2</span> 
-        <span class="k">elif</span> <span class="s2">&quot;HearingImpairment_G1_24m&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"HearingImpairment_G1_24m"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__HearingImpairment_G1_24m</span> 
-        <span class="k">elif</span> <span class="s2">&quot;HearingLoss_late&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"HearingLoss_late"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__HearingLoss_late</span> 
-        <span class="k">elif</span> <span class="s2">&quot;MemoryImpairment_G1_12m&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"MemoryImpairment_G1_12m"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__MemoryImpairment_G1_12m</span> 
-        <span class="k">elif</span> <span class="s2">&quot;MemoryImpairment_G1_24m&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"MemoryImpairment_G1_24m"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__MemoryImpairment_G1_24m</span> 
-        <span class="k">elif</span> <span class="s2">&quot;MemoryImpairment_G2_12m&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"MemoryImpairment_G2_12m"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__MemoryImpairment_G2_12m</span> 
-        <span class="k">elif</span> <span class="s2">&quot;OcularToxicity_G2_acute&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"OcularToxicity_G2_acute"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__OcularToxicity_G2_acute</span> 
-        <span class="k">elif</span> <span class="s2">&quot;TemporalLobeInjury_5y&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"TemporalLobeInjury_5y"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__TemporalLobeInjury_5y</span> 
-        <span class="k">elif</span> <span class="s2">&quot;Tinnitus_G2_late&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="s2">"Tinnitus_G2_late"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">impl_fn</span> <span class="o">=</span> <span class="n">NTCP__Tinnitus_G2_late</span>
       
 <div class="viewcode-block" id="NTCPModelBase.define_side">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCPModelBase.define_side">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">define_side</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">vRBE_model</span><span class="p">,</span> <span class="n">dfi_dvh</span><span class="p">,</span><span class="n">parameterName</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Resolve which structure (ROI) to use when a model applies to a</span>
-<span class="sd">        laterality-specific OAR (e.g. &quot;Cochlea ipsi&quot; vs &quot;Cochlea contra&quot;)</span>
+<span class="sd">        laterality-specific OAR (e.g. "Cochlea ipsi" vs "Cochlea contra")</span>
 <span class="sd">        and the metrics DataFrame has more than one ROI matching</span>
 <span class="sd">        ``self.OAR_name``.</span>
 
 <span class="sd">        Selection is geometry-based when possible: the candidate ROI</span>
-<span class="sd">        whose center of mass is closest to the CTV&#39;s center of mass is</span>
-<span class="sd">        &quot;ipsi&quot;, the farthest is &quot;contra&quot; (see</span>
+<span class="sd">        whose center of mass is closest to the CTV's center of mass is</span>
+<span class="sd">        "ipsi", the farthest is "contra" (see</span>
 <span class="sd">        ``_define_side_by_geometry``/``get_roi_center_of_mass``). If</span>
-<span class="sd">        center-of-mass data isn&#39;t available for the CTV or for every</span>
+<span class="sd">        center-of-mass data isn't available for the CTV or for every</span>
 <span class="sd">        candidate ROI, this falls back to the previous dose-value</span>
 <span class="sd">        heuristic (candidate with the highest  mean dose = ipsi, lowest =</span>
 <span class="sd">        contra).</span>
@@ -482,9 +482,9 @@
 <span class="sd">        ----------</span>
 <span class="sd">        vRBE_model : str</span>
 <span class="sd">            Dose-type/RBE-model label prefix used in the metrics column</span>
-<span class="sd">            names (e.g. &quot;Phys&quot;, &quot;RBE1.1&quot;, &quot;mcnamara&quot;).</span>
+<span class="sd">            names (e.g. "Phys", "RBE1.1", "mcnamara").</span>
 <span class="sd">        dfi_dvh : pandas.DataFrame</span>
-<span class="sd">            The patient&#39;s per-structure metrics table</span>
+<span class="sd">            The patient's per-structure metrics table</span>
 <span class="sd">            (``AnalysisResults.metrics_df``).</span>
 <span class="sd">        parameterName : str</span>
 <span class="sd">            Metric column-name suffix to compare across candidate ROIs.</span>
@@ -493,11 +493,11 @@
 <span class="sd">        -------</span>
 <span class="sd">        str or None</span>
 <span class="sd">            The chosen ``ROI_Name`` value, or None if no ROI matches.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">rois</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">"ROI_Name"</span><span class="p">]:</span>
             <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span> <span class="ow">or</span> <span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
-                <span class="n">val</span> <span class="o">=</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="n">vRBE_model</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="n">parameterName</span><span class="p">][</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">]</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="n">vRBE_model</span> <span class="o">+</span> <span class="s1">'_'</span> <span class="o">+</span> <span class="n">parameterName</span><span class="p">][</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">"ROI_Name"</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">]</span>
                 <span class="n">rois</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     
         <span class="c1"># If only one (or zero) matching ROI, no side selection needed</span>
@@ -505,7 +505,7 @@
             <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">rois</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
 
         <span class="c1"># Only apply ipsi/contra logic if the model name signals it</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;ipsi&quot;</span><span class="p">,</span> <span class="s2">&quot;contra&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"ipsi"</span><span class="p">,</span> <span class="s2">"contra"</span><span class="p">):</span>
             <span class="c1"># Multiple ROIs but no side info in model name — fall back to first match</span>
             <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">rois</span><span class="p">))</span>
 
@@ -513,104 +513,104 @@
         <span class="n">geom_choice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_define_side_by_geometry</span><span class="p">(</span><span class="n">dfi_dvh</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">rois</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
         <span class="k">if</span> <span class="n">geom_choice</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">geom_choice</span><span class="si">}</span><span class="s2"> chosen as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="si">}</span><span class="s2"> ROI for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> based on geometry&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">geom_choice</span><span class="si">}</span><span class="s2"> chosen as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="si">}</span><span class="s2"> ROI for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> based on geometry"</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">return</span> <span class="n">geom_choice</span>
 
         <span class="c1"># --- Fallback: dose-value heuristic ---</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">==</span> <span class="s2">&quot;ipsi&quot;</span> <span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">==</span> <span class="s2">"ipsi"</span> <span class="p">:</span>
             
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">max</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span><span class="w"> </span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="si">}</span><span class="s2"> chosen as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="si">}</span><span class="s2"> ROI for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> based on mean dose for </span><span class="si">{</span><span class="n">vRBE_model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">max</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span><span class="w"> </span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="si">}</span><span class="s2"> chosen as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="si">}</span><span class="s2"> ROI for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> based on mean dose for </span><span class="si">{</span><span class="n">vRBE_model</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span>
             
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">min</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span><span class="w"> </span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="si">}</span><span class="s2"> chosen as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="si">}</span><span class="s2"> ROI for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> based on mean dose for </span><span class="si">{</span><span class="n">vRBE_model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">min</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span><span class="w"> </span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span><span class="w"> </span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="si">}</span><span class="s2"> chosen as </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="si">}</span><span class="s2"> ROI for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> based on mean dose for </span><span class="si">{</span><span class="n">vRBE_model</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">rois</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">rois</span><span class="p">[</span><span class="n">k</span><span class="p">])</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_define_side_by_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dfi_dvh</span><span class="p">,</span> <span class="n">candidate_rois</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Assign ipsi/contra by comparing each candidate ROI&#39;s center of</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Assign ipsi/contra by comparing each candidate ROI's center of</span>
 <span class="sd">        mass (``COM_x``/``COM_y``/``COM_z`` columns, populated by</span>
-<span class="sd">        ``PatientPlan.analyse()``) to the CTV&#39;s center of mass: the</span>
-<span class="sd">        candidate closest to the CTV is &quot;ipsi&quot;, the farthest is</span>
-<span class="sd">        &quot;contra&quot;.</span>
+<span class="sd">        ``PatientPlan.analyse()``) to the CTV's center of mass: the</span>
+<span class="sd">        candidate closest to the CTV is "ipsi", the farthest is</span>
+<span class="sd">        "contra".</span>
 
 <span class="sd">        Returns None (triggering the dose-based fallback in</span>
 <span class="sd">        ``define_side``) if the COM columns are missing, no CTV</span>
 <span class="sd">        reference can be resolved, or COM data is missing for the CTV</span>
 <span class="sd">        or any candidate ROI.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="p">{</span><span class="s2">&quot;COM_x&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_y&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_z&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">dfi_dvh</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">{</span><span class="s2">"COM_x"</span><span class="p">,</span> <span class="s2">"COM_y"</span><span class="p">,</span> <span class="s2">"COM_z"</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">dfi_dvh</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="n">ctv_row_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_ctv_name</span><span class="p">(</span><span class="n">dfi_dvh</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">ctv_row_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="n">ctv_com</span> <span class="o">=</span> <span class="n">dfi_dvh</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">ctv_row_name</span><span class="p">,</span>
-                              <span class="p">[</span><span class="s2">&quot;COM_x&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_y&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_z&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">ctv_com</span> <span class="o">=</span> <span class="n">dfi_dvh</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">"ROI_Name"</span><span class="p">]</span> <span class="o">==</span> <span class="n">ctv_row_name</span><span class="p">,</span>
+                              <span class="p">[</span><span class="s2">"COM_x"</span><span class="p">,</span> <span class="s2">"COM_y"</span><span class="p">,</span> <span class="s2">"COM_z"</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ctv_com</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">ctv_com</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="n">ctv_com</span> <span class="o">=</span> <span class="n">ctv_com</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="n">distances</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">roi</span> <span class="ow">in</span> <span class="n">candidate_rois</span><span class="p">:</span>
-            <span class="n">com</span> <span class="o">=</span> <span class="n">dfi_dvh</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">roi</span><span class="p">,</span>
-                              <span class="p">[</span><span class="s2">&quot;COM_x&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_y&quot;</span><span class="p">,</span> <span class="s2">&quot;COM_z&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+            <span class="n">com</span> <span class="o">=</span> <span class="n">dfi_dvh</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">"ROI_Name"</span><span class="p">]</span> <span class="o">==</span> <span class="n">roi</span><span class="p">,</span>
+                              <span class="p">[</span><span class="s2">"COM_x"</span><span class="p">,</span> <span class="s2">"COM_y"</span><span class="p">,</span> <span class="s2">"COM_z"</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">com</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">com</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
                 <span class="k">continue</span>
             <span class="n">distances</span><span class="p">[</span><span class="n">roi</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">com</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">ctv_com</span><span class="p">))</span>
 
         <span class="c1"># Require COM data for every candidate — a partial comparison</span>
-        <span class="c1"># isn&#39;t a safe basis for ipsi/contra assignment.</span>
+        <span class="c1"># isn't a safe basis for ipsi/contra assignment.</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">distances</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidate_rois</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">==</span> <span class="s2">&quot;ipsi&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span> <span class="o">==</span> <span class="s2">"ipsi"</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">distances</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">distances</span><span class="o">.</span><span class="n">get</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">distances</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">distances</span><span class="o">.</span><span class="n">get</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_ctv_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dfi_dvh</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Resolve which ROI represents the CTV for geometry-based side</span>
 <span class="sd">        selection: ``self.ctv_name`` (exact match) if set, otherwise</span>
-<span class="sd">        the first ROI (in table order) whose name contains &quot;CTV&quot;</span>
+<span class="sd">        the first ROI (in table order) whose name contains "CTV"</span>
 <span class="sd">        (case-insensitive).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctv_name</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">"ROI_Name"</span><span class="p">]:</span>
                 <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctv_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
                     <span class="k">return</span> <span class="n">s</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ctv_name</span><span class="si">}</span><span class="s2"> is not available for for Ipsi/Contra definition&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ctv_name</span><span class="si">}</span><span class="s2"> is not available for for Ipsi/Contra definition"</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">not_printed</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="s2">&quot;ctv&quot;</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">"ROI_Name"</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="s2">"ctv"</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
                 <span class="k">return</span> <span class="n">s</span>
         <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_match_roi_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dfi_dvh</span><span class="p">,</span> <span class="n">roi_name</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Resolve a user-supplied ``roi_name`` override to the exact</span>
 <span class="sd">        ``ROI_Name`` value present in ``dfi_dvh`` (case-insensitive</span>
 <span class="sd">        exact match — this is a specific user choice, not a fuzzy</span>
 <span class="sd">        substring search).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">"ROI_Name"</span><span class="p">]:</span>
             <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="n">roi_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
                 <span class="k">return</span> <span class="n">s</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;roi_name override &#39;</span><span class="si">{</span><span class="n">roi_name</span><span class="si">}</span><span class="s2">&#39; not found in metrics_df[&#39;ROI_Name&#39;].&quot;</span>
+            <span class="sa">f</span><span class="s2">"roi_name override '</span><span class="si">{</span><span class="n">roi_name</span><span class="si">}</span><span class="s2">' not found in metrics_df['ROI_Name']."</span>
         <span class="p">)</span>
         
 <div class="viewcode-block" id="NTCPModelBase.compute_x">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCPModelBase.compute_x">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_x</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">,</span><span class="n">roi</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Build the covariate vector ``x`` this model&#39;s ``impl_fn`` expects,</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Build the covariate vector ``x`` this model's ``impl_fn`` expects,</span>
 <span class="sd">        by pulling ``self.parameterNames`` columns for the matched ROI(s)</span>
 <span class="sd">        out of the metrics DataFrame.</span>
 
@@ -628,13 +628,13 @@
 <span class="sd">            One value per covariate, in ``self.parameterNames`` order.</span>
 <span class="sd">            Entries are ``np.nan`` where the required ROI/metric could</span>
 <span class="sd">            not be found.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">x</span> <span class="o">=</span> <span class="p">[]</span>
         
                            
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">numberOfVariables</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">potential_x</span> <span class="o">=</span> <span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="n">vRBE_model</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]</span><span class="o">==</span><span class="n">roi</span><span class="p">]]</span>
+                <span class="n">potential_x</span> <span class="o">=</span> <span class="p">[</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="n">vRBE_model</span><span class="o">+</span><span class="s1">'_'</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">parameterNames</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">"ROI_Name"</span><span class="p">]</span><span class="o">==</span><span class="n">roi</span><span class="p">]]</span>
                 <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">potential_x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
             <span class="k">except</span><span class="p">:</span>
                 <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
@@ -644,8 +644,8 @@
 <div class="viewcode-block" id="NTCPModelBase.compute_NTCP">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCPModelBase.compute_NTCP">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_NTCP</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Compute this model&#39;s NTCP for one patient and one dose type.</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compute this model's NTCP for one patient and one dose type.</span>
 <span class="sd">        Define ipsi/contra first based on COM, mean dose as fallback</span>
 <span class="sd">        </span>
 <span class="sd">        Parameters</span>
@@ -660,16 +660,16 @@
 <span class="sd">        float or None</span>
 <span class="sd">            NTCP in percent (0-100), rounded to 4 decimals. Returns</span>
 <span class="sd">            ``None`` if any required covariate is missing/NaN.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
            
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">roi_name_override</span><span class="p">:</span>
             <span class="c1"># Explicit user choice — bypass OAR/side matching entirely.</span>
             <span class="n">roi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_match_roi_name</span><span class="p">(</span><span class="n">dfi_dvh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roi_name_override</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">side</span><span class="p">:</span>
-            <span class="n">roi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">define_side</span><span class="p">(</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">,</span><span class="s2">&quot;Dmean&quot;</span><span class="p">)</span>
+            <span class="n">roi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">define_side</span><span class="p">(</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">,</span><span class="s2">"Dmean"</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">roi</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">&quot;ROI_Name&quot;</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">dfi_dvh</span><span class="p">[</span><span class="s2">"ROI_Name"</span><span class="p">]:</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">OAR_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
                     <span class="n">roi</span> <span class="o">=</span> <span class="n">s</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_x</span><span class="p">(</span><span class="n">vRBE_model</span><span class="p">,</span><span class="n">dfi_dvh</span><span class="p">,</span><span class="n">roi</span><span class="p">)</span>
@@ -681,7 +681,7 @@
 <div class="viewcode-block" id="npNan">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.npNan">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">npNan</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fallback implementation for an unrecognised model name; always returns NaN.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Fallback implementation for an unrecognised model name; always returns NaN."""</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span></div>
 
 
@@ -691,7 +691,7 @@
 <div class="viewcode-block" id="NTCP__Alopecia_G1_12m__1">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Alopecia_G1_12m__1">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Alopecia_G1_12m__1</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">1.88</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.15</span><span class="p">):</span> <span class="c1">#1.80 o 1.88??</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Alopecia grade &gt;=1, 12 months after PBT</span>
 <span class="sd">    Late</span>
 <span class="sd">    Dutz et al. 2021</span>
@@ -709,7 +709,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -718,7 +718,7 @@
 <div class="viewcode-block" id="NTCP__Alopecia_G1_12m__2">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Alopecia_G1_12m__2">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Alopecia_G1_12m__2</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">6.38</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.15</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Alopecia grade ≥1_12 months after PBT</span>
 <span class="sd">    Late</span>
 <span class="sd">    Dutz et al. 2021</span>
@@ -737,7 +737,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1] </span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -747,7 +747,7 @@
 <div class="viewcode-block" id="NTCP__Alopecia_G1_24m__1">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Alopecia_G1_24m__1">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Alopecia_G1_24m__1</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">1.70</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.048</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Alopecia grade ≥1_24 months after PBT</span>
 <span class="sd">    Late</span>
 <span class="sd">    Dutz et al. 2021</span>
@@ -766,7 +766,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1] .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -776,7 +776,7 @@
 <div class="viewcode-block" id="NTCP__Alopecia_G1_24m__2">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Alopecia_G1_24m__2">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Alopecia_G1_24m__2</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">3.18</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.068</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Alopecia grade ≥1_24 months after PBT</span>
 <span class="sd">    Late</span>
 <span class="sd">    Dutz et al. 2021</span>
@@ -795,7 +795,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -805,7 +805,7 @@
 <div class="viewcode-block" id="NTCP__Alopecia_G1_acute">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Alopecia_G1_acute">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Alopecia_G1_acute</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">0.94</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.10</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Alopecia grade &gt;=1 (CTCAE, Common Terminology Criteria for Adverse Events)</span>
 <span class="sd">    Acute</span>
 <span class="sd">    Dutz et al. 2019</span>
@@ -824,7 +824,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -834,7 +834,7 @@
 <div class="viewcode-block" id="NTCP__Alopecia_G2_acute">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Alopecia_G2_acute">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Alopecia_G2_acute</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">1.33</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.081</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Alopecia grade &gt;=2 (CTCAE, Common Terminology Criteria for Adverse Events)</span>
 <span class="sd">    Acute</span>
 <span class="sd">    Dutz et al. 2019</span>
@@ -853,7 +853,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1]  .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -866,7 +866,7 @@
 <div class="viewcode-block" id="NTCP__Blindness_5y">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Blindness_5y">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Blindness_5y</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">TD50</span><span class="o">=</span><span class="mf">65.0</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mf">0.14</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Blindness</span>
 <span class="sd">    Chiasm and optic nerves gEUD, a = 4.0</span>
 <span class="sd">    5 years post-RT</span>
@@ -886,7 +886,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span> 
+<span class="sd">    """</span> 
     <span class="n">t</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">TD50</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">m</span><span class="o">*</span><span class="n">TD50</span><span class="p">)</span>
     <span class="k">return</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">scipy</span><span class="o">.</span><span class="n">special</span><span class="o">.</span><span class="n">erf</span><span class="p">(</span><span class="n">t</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span></div>
 
@@ -897,7 +897,7 @@
 <div class="viewcode-block" id="NTCP__BrainNecrosis_5y">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__BrainNecrosis_5y">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__BrainNecrosis_5y</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">D50</span><span class="o">=</span><span class="mf">109.0</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">2.8</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Brain necrosis</span>
 <span class="sd">    Brain-CTV and Brainstem Dmax (EQD2)</span>
 <span class="sd">    5 years post-RT</span>
@@ -917,7 +917,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mi">0</span>
     <span class="k">else</span><span class="p">:</span>
@@ -930,7 +930,7 @@
 <div class="viewcode-block" id="NTCP__CataractRequiringIntervention_5y">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__CataractRequiringIntervention_5y">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__CataractRequiringIntervention_5y</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">TD50</span><span class="o">=</span><span class="mf">18.0</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mf">0.27</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Cataract requiring intervention</span>
 <span class="sd">    Lenses gEUD</span>
 <span class="sd">    5 years post-RT</span>
@@ -950,7 +950,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1]  .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">t</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">TD50</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">m</span><span class="o">*</span><span class="n">TD50</span><span class="p">)</span>
     <span class="k">return</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">scipy</span><span class="o">.</span><span class="n">special</span><span class="o">.</span><span class="n">erf</span><span class="p">(</span><span class="n">t</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span></div>
 
@@ -960,7 +960,7 @@
 <div class="viewcode-block" id="NTCP__DelayedRecall_1_5y">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__DelayedRecall_1_5y">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__DelayedRecall_1_5y</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">EQD_2_50</span><span class="o">=</span><span class="mf">14.88</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mf">0.540</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Delayed recall (on Wechsler Memory scale III Word Lists)</span>
 <span class="sd">    Bilateral hippocampi D40% (EQD2)</span>
 <span class="sd">    1.5 years post-RT</span>
@@ -980,7 +980,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">t</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">EQD_2_50</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">m</span><span class="o">*</span><span class="n">EQD_2_50</span><span class="p">)</span>
     <span class="k">return</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">scipy</span><span class="o">.</span><span class="n">special</span><span class="o">.</span><span class="n">erf</span><span class="p">(</span><span class="n">t</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span></div>
 
@@ -991,7 +991,7 @@
 <div class="viewcode-block" id="NTCP__EndocrineDysfunction_late">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__EndocrineDysfunction_late">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__EndocrineDysfunction_late</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">TD50</span><span class="o">=</span><span class="mf">60.5</span><span class="p">,</span> <span class="n">gamma50</span><span class="o">=</span><span class="mf">5.2</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Endocrine dysfunction (CTCAE, Common Terminology Criteria for Adverse Events)</span>
 <span class="sd">    Pituitary gEUD, a = 6.4</span>
 <span class="sd">    At least 0.5 – 2 years post-RT</span>
@@ -1011,7 +1011,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1]  .</span>
-<span class="sd">    &quot;&quot;&quot;</span>  
+<span class="sd">    """</span>  
     <span class="k">if</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mi">0</span>
     <span class="k">else</span><span class="p">:</span>
@@ -1024,7 +1024,7 @@
 <div class="viewcode-block" id="NTCP__Erythema_G1_acute">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Erythema_G1_acute">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Erythema_G1_acute</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=</span><span class="mf">1.00</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.085</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Erythema grade ≥ 1</span>
 <span class="sd">    Skin V35Gy(RBE), absolute volume</span>
 <span class="sd">    Acute</span>
@@ -1044,7 +1044,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1]  .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 <span class="c1">#     </span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
@@ -1055,7 +1055,7 @@
 <div class="viewcode-block" id="NTCP__Erythema_G2_acute">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Erythema_G2_acute">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Erythema_G2_acute</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">1.54</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.056</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Erythema grade ≥ 2 (CTCAE, Common Terminology Criteria for Adverse Events)</span>
 <span class="sd">    Skin V35Gy(RBE), absolute volume</span>
 <span class="sd">    Acute</span>
@@ -1074,7 +1074,7 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    float  NTCP probability in [0, 1]  .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -1083,7 +1083,7 @@
 <div class="viewcode-block" id="NTCP__Fatigue_G1_24m">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Fatigue_G1_24m">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Fatigue_G1_24m</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">1.52</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.021</span><span class="p">,</span> <span class="n">beta_2</span><span class="o">=-</span><span class="mf">1.16</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Fatigue grade ≥ 1_24 months after PBT</span>
 <span class="sd">    x[0] BrainStem D2% in Gy(RBE)^-(1)</span>
 <span class="sd">    x[1] CTx == 0: patient recieved no chemotherapy</span>
@@ -1106,7 +1106,7 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    float NTCP probability in [0, 1]  .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">beta_2</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>  </div>
 
 
@@ -1116,7 +1116,7 @@
 <div class="viewcode-block" id="NTCP__Fatigue_G1_acute">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Fatigue_G1_acute">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Fatigue_G1_acute</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">0.90</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.027</span><span class="p">,</span> <span class="n">beta_2</span><span class="o">=</span><span class="mf">1.28</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Fatigue grade &gt;=1 (CTCAE, Common Terminology Criteria for Adverse Events)</span>
 <span class="sd">    x[0] Brain-CTV(Gy), D2%</span>
 <span class="sd">    x[1] female: gender = 1</span>
@@ -1139,7 +1139,7 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    float NTCP probability in [0, 1]  .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">beta_2</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span></div>
 
 
@@ -1149,7 +1149,7 @@
 <div class="viewcode-block" id="NTCP__HearingImpairment_G1_12m__1">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__HearingImpairment_G1_12m__1">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__HearingImpairment_G1_12m__1</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">3.03</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.038</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Hearing impairment grade ≥1_12 months after PBT</span>
 <span class="sd">    Dmean == Cochlea ipsi Dmean in Gy(RBE)^-(1)</span>
 <span class="sd">    Late</span>
@@ -1169,7 +1169,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1]  .</span>
-<span class="sd">    &quot;&quot;&quot;</span> 
+<span class="sd">    """</span> 
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -1179,7 +1179,7 @@
 <div class="viewcode-block" id="NTCP__HearingImpairment_G1_12m__2">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__HearingImpairment_G1_12m__2">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__HearingImpairment_G1_12m__2</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">7.02</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.032</span><span class="p">,</span> <span class="n">beta_2</span><span class="o">=</span><span class="mf">0.072</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Hearing impairment grade ≥1_12 months after PBT</span>
 <span class="sd">    x[0] Dmean = Cochlea ipsi Dmean in Gy(RBE)^-(1)</span>
 <span class="sd">    x[1] Age = Age in years</span>
@@ -1202,7 +1202,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">beta_2</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span></div>
 
 
@@ -1212,7 +1212,7 @@
 <div class="viewcode-block" id="NTCP__HearingImpairment_G1_24m">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__HearingImpairment_G1_24m">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__HearingImpairment_G1_24m</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">3.48</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.050</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Hearing impairment grade ≥1_24 months after PBT</span>
 <span class="sd">    Cochlea ipsi Dmean in Gy(RBE)^-(1)</span>
 <span class="sd">    Late</span>
@@ -1232,7 +1232,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -1241,7 +1241,7 @@
 <div class="viewcode-block" id="NTCP__HearingLoss_late">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__HearingLoss_late">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__HearingLoss_late</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">TD50</span><span class="o">=</span><span class="mf">56.0</span><span class="p">,</span> <span class="n">gamma50</span><span class="o">=</span><span class="mf">2.9</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Hearing loss (CTCAE, Common Terminology Criteria for Adverse Events)</span>
 <span class="sd">    Cochlea gEUD, a = 1.2</span>
 <span class="sd">    At least 0.5 – 2 years post-RT</span>
@@ -1261,7 +1261,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="mi">0</span>
     <span class="k">else</span><span class="p">:</span>
@@ -1277,7 +1277,7 @@
 <div class="viewcode-block" id="NTCP__MemoryImpairment_G1_12m">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__MemoryImpairment_G1_12m">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__MemoryImpairment_G1_12m</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">2.32</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.023</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Memory impairment grade ≥1_12 months after PBT</span>
 <span class="sd">    Hippocampi D2% in Gy(RBE)^-(1)</span>
 <span class="sd">    Late</span>
@@ -1297,7 +1297,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1] .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mi">100</span><span class="p">)))</span></div>
 
 
@@ -1307,7 +1307,7 @@
 <div class="viewcode-block" id="NTCP__MemoryImpairment_G1_24m">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__MemoryImpairment_G1_24m">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__MemoryImpairment_G1_24m</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">1.77</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">6.50</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Memory impairment grade ≥1_24 months after PBT</span>
 <span class="sd">    Brain-CTV V35Gy(RBE) as fraction of the total volume</span>
 <span class="sd">    Late</span>
@@ -1327,7 +1327,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1] .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mi">100</span><span class="p">)))</span></div>
 
 
@@ -1337,7 +1337,7 @@
 <div class="viewcode-block" id="NTCP__MemoryImpairment_G2_12m">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__MemoryImpairment_G2_12m">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__MemoryImpairment_G2_12m</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">3.42</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">5.02</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Memory impairment grade ≥2_12 months after PBT</span>
 <span class="sd">    Brain-CTV V25Gy(RBE) as fraction of the total volume</span>
 <span class="sd">    Late</span>
@@ -1357,7 +1357,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1] .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mi">100</span><span class="p">)))</span></div>
 
 
@@ -1367,7 +1367,7 @@
 <div class="viewcode-block" id="NTCP__OcularToxicity_G2_acute">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__OcularToxicity_G2_acute">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__OcularToxicity_G2_acute</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">5.174</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.205</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Ocular toxicity grade ≥ 2 (RTOG, Radiation Therapy Oncology Group)</span>
 <span class="sd">    Ipsilateral lacrimal gland Dmax</span>
 <span class="sd">    Acute</span>
@@ -1387,7 +1387,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1] .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -1400,7 +1400,7 @@
 <div class="viewcode-block" id="NTCP__TemporalLobeInjury_5y">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__TemporalLobeInjury_5y">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__TemporalLobeInjury_5y</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta_0</span><span class="o">=-</span><span class="mf">18.61</span><span class="p">,</span> <span class="n">beta_1</span><span class="o">=</span><span class="mf">0.227</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Temporal lobe injury</span>
 <span class="sd">    Dmax = Temporal lobe Dmax</span>
 <span class="sd">    5 years post-RT</span>
@@ -1420,7 +1420,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1] .</span>
-<span class="sd">    &quot;&quot;&quot;</span> 
+<span class="sd">    """</span> 
     <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta_0</span><span class="o">-</span><span class="n">beta_1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span></div>
 
 
@@ -1430,7 +1430,7 @@
 <div class="viewcode-block" id="NTCP__Tinnitus_G2_late">
 <a class="viewcode-back" href="../../api/ntcp.html#PyPlanAnalysis.NTCP.NTCP__Tinnitus_G2_late">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">NTCP__Tinnitus_G2_late</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">TD50</span><span class="o">=</span><span class="mf">46.52</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mf">0.35</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Tinnitus grade ≥ 2 (LENT-SOMA, late effects of normal tissues - subjective, objective, management)</span>
 <span class="sd">    Cochlea Dmean</span>
 <span class="sd">    1–2 years post-RT</span>
@@ -1450,7 +1450,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        NTCP probability in [0, 1] .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">t</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">TD50</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">m</span><span class="o">*</span><span class="n">TD50</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">scipy</span><span class="o">.</span><span class="n">special</span><span class="o">.</span><span class="n">erf</span><span class="p">(</span><span class="n">t</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span></div>

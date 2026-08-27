@@ -253,18 +253,18 @@ physical dose, RTDOSE LET). It auto-discovers and cross-links the files
 via their DICOM reference tags:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">PyPlanAnalysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">PatientPlan</span>
 
-<span class="n">plan</span> <span class="o">=</span> <span class="n">PatientPlan</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span><span class="s2">&quot;path/to/patient_dicom_folder&quot;</span><span class="p">)</span>
+<span class="n">plan</span> <span class="o">=</span> <span class="n">PatientPlan</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span><span class="s2">"path/to/patient_dicom_folder"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>If your files aren’t in one flat, fully self-consistent folder, build the
 plan manually instead:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">plan</span> <span class="o">=</span> <span class="n">PatientPlan</span><span class="p">(</span>
-    <span class="n">patient_id</span>     <span class="o">=</span> <span class="s2">&quot;Patient01&quot;</span><span class="p">,</span>
-    <span class="n">plan_file</span>      <span class="o">=</span> <span class="s2">&quot;RTPLAN.dcm&quot;</span><span class="p">,</span>
-    <span class="n">dose_file</span>      <span class="o">=</span> <span class="s2">&quot;RTDOSE_physical.dcm&quot;</span><span class="p">,</span>
-    <span class="n">let_file</span>       <span class="o">=</span> <span class="s2">&quot;RTDOSE_LET.dcm&quot;</span><span class="p">,</span>
-    <span class="n">rtstruct</span>       <span class="o">=</span> <span class="s2">&quot;RTSTRUCT.dcm&quot;</span><span class="p">,</span>
-    <span class="n">CT_folder_path</span> <span class="o">=</span> <span class="s2">&quot;CT/&quot;</span><span class="p">,</span>
+    <span class="n">patient_id</span>     <span class="o">=</span> <span class="s2">"Patient01"</span><span class="p">,</span>
+    <span class="n">plan_file</span>      <span class="o">=</span> <span class="s2">"RTPLAN.dcm"</span><span class="p">,</span>
+    <span class="n">dose_file</span>      <span class="o">=</span> <span class="s2">"RTDOSE_physical.dcm"</span><span class="p">,</span>
+    <span class="n">let_file</span>       <span class="o">=</span> <span class="s2">"RTDOSE_LET.dcm"</span><span class="p">,</span>
+    <span class="n">rtstruct</span>       <span class="o">=</span> <span class="s2">"RTSTRUCT.dcm"</span><span class="p">,</span>
+    <span class="n">CT_folder_path</span> <span class="o">=</span> <span class="s2">"CT/"</span><span class="p">,</span>
     <span class="n">n_fractions</span>    <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -273,7 +273,7 @@ plan manually instead:</p>
 <section id="running-the-analysis">
 <h2>Running the analysis<a class="headerlink" href="#running-the-analysis" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">analyse</span><span class="p">(</span>
-    <span class="n">structures</span>     <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CTV&quot;</span><span class="p">,</span> <span class="s2">&quot;Brainstem&quot;</span><span class="p">,</span> <span class="s2">&quot;Parotid_L&quot;</span><span class="p">],</span>  <span class="c1"># or None for all</span>
+    <span class="n">structures</span>     <span class="o">=</span> <span class="p">[</span><span class="s2">"CTV"</span><span class="p">,</span> <span class="s2">"Brainstem"</span><span class="p">,</span> <span class="s2">"Parotid_L"</span><span class="p">],</span>  <span class="c1"># or None for all</span>
     <span class="n">use_fractional</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>   <span class="c1"># sub-voxel accurate masks (recommended)</span>
     <span class="n">supersample</span>    <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
 <span class="p">)</span>
@@ -303,7 +303,7 @@ used. Sensible defaults are applied when omitted.</p>
 <h2>NTCP scoring<a class="headerlink" href="#ntcp-scoring" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">PyPlanAnalysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">NTCPConfig</span>
 
-<span class="n">ntcp_cfg</span> <span class="o">=</span> <span class="n">NTCPConfig</span><span class="p">(</span><span class="n">models</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;BrainNecrosis_5y&quot;</span><span class="p">,</span> <span class="s2">&quot;HearingLoss_late&quot;</span><span class="p">])</span>
+<span class="n">ntcp_cfg</span> <span class="o">=</span> <span class="n">NTCPConfig</span><span class="p">(</span><span class="n">models</span><span class="o">=</span><span class="p">[</span><span class="s2">"BrainNecrosis_5y"</span><span class="p">,</span> <span class="s2">"HearingLoss_late"</span><span class="p">])</span>
 <span class="n">ntcp</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">CalcNTCP</span><span class="p">(</span><span class="n">ntcp_cfg</span><span class="p">)</span>
 </pre></div>
 </div>

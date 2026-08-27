@@ -236,13 +236,13 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for PyPlanAnalysis.io</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">PyPlanAnalysis.io</span>
 <span class="sd">==================</span>
 
 <span class="sd">DICOM discovery and loading, CT/dose grid resampling, and RT Struct</span>
 <span class="sd">mask extraction (binary and fractional).</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
@@ -263,13 +263,13 @@
 
 <span class="c1"># We read RT Struct contours directly via pydicom for reliability.</span>
 
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 <span class="sd">DICOM auto-discovery for an RT (proton/photon) dataset folder.</span>
 
 <span class="sd">Given a folder that may contain a mix of CT slices, one or more RTSTRUCT,</span>
 <span class="sd">RTPLAN and RTDOSE (physical dose + LET) files — possibly several</span>
 <span class="sd">candidates of each, possibly nested in sub-folders, possibly with some</span>
-<span class="sd">files that don&#39;t actually belong together — this finds the one</span>
+<span class="sd">files that don't actually belong together — this finds the one</span>
 <span class="sd">self-consistent set by walking the standard DICOM cross-reference chain:</span>
 
 <span class="sd">    RTPLAN</span>
@@ -288,12 +288,12 @@
 <span class="sd">            (0008,1155) ReferencedSOPInstanceUID    -&gt; RTPLAN</span>
 <span class="sd">                                                        (0008,0018) SOPInstanceUID</span>
 
-<span class="sd">If the first candidate of each type doesn&#39;t line up, instead of failing</span>
+<span class="sd">If the first candidate of each type doesn't line up, instead of failing</span>
 <span class="sd">the function tries other candidates present in the folder until it finds</span>
 <span class="sd">a combination where every link checks out. If no fully-verified</span>
 <span class="sd">combination exists, it falls back to the best partial match it can build</span>
-<span class="sd">and explains exactly what couldn&#39;t be confirmed via `link_warnings`.</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">and explains exactly what couldn't be confirmed via `link_warnings`.</span>
+<span class="sd">"""</span>
 
 
 
@@ -321,7 +321,7 @@
         <span class="n">path</span><span class="p">:</span> <span class="n">Path</span>
         <span class="n">sop_class</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
         <span class="n">sop_uid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-        <span class="n">radiationType</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="c1">#&quot;PROTON&quot;</span>
+        <span class="n">radiationType</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="c1">#"PROTON"</span>
         <span class="n">patient_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
         <span class="n">ref_struct</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># (ReferencedSOPClassUID, ReferencedSOPInstanceUID)</span>
     
@@ -331,119 +331,119 @@
         <span class="n">path</span><span class="p">:</span> <span class="n">Path</span>
         <span class="n">sop_uid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
         <span class="n">patient_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-        <span class="n">dose_kind</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># &quot;PHYSICAL&quot;, &quot;LET&quot;, or &quot;EFFECTIVE&quot;</span>
-        <span class="n">dose_SumType</span><span class="p">:</span> <span class="nb">str</span> <span class="c1">#&quot;PLAN&quot; or &quot;BEAM&quot;</span>
+        <span class="n">dose_kind</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># "PHYSICAL", "LET", or "EFFECTIVE"</span>
+        <span class="n">dose_SumType</span><span class="p">:</span> <span class="nb">str</span> <span class="c1">#"PLAN" or "BEAM"</span>
         <span class="n">ref_plan_sop</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">frame_of_ref_uid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span> 
 
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;One recursive pass over every *.dcm file in `folder` (including</span>
+<span class="w">    </span><span class="sd">"""One recursive pass over every *.dcm file in `folder` (including</span>
 <span class="sd">    sub-folders), sorting each into a lightweight candidate record keyed</span>
-<span class="sd">    by modality. Searching recursively means files don&#39;t need to live</span>
-<span class="sd">    directly in `folder` for this to find them.&quot;&quot;&quot;</span>
+<span class="sd">    by modality. Searching recursively means files don't need to live</span>
+<span class="sd">    directly in `folder` for this to find them."""</span>
     <span class="n">ct_series</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">rtstructs</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">rtplans</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">rtdoses</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">folder</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s2">&quot;*.dcm&quot;</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">folder</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s2">"*.dcm"</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">ds</span> <span class="o">=</span> <span class="n">pydicom</span><span class="o">.</span><span class="n">dcmread</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">stop_before_pixels</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">continue</span>
-        <span class="n">modality</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;Modality&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-        <span class="n">patient_id</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;PatientID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">modality</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"Modality"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="n">patient_id</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"PatientID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">modality</span> <span class="o">==</span> <span class="s2">&quot;CT&quot;</span><span class="p">:</span>
-            <span class="n">series_uid</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SeriesInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">modality</span> <span class="o">==</span> <span class="s2">"CT"</span><span class="p">:</span>
+            <span class="n">series_uid</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"SeriesInstanceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">series_uid</span> <span class="ow">and</span> <span class="n">series_uid</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ct_series</span><span class="p">:</span>
                 <span class="n">ct_series</span><span class="p">[</span><span class="n">series_uid</span><span class="p">]</span> <span class="o">=</span> <span class="n">CTSeries</span><span class="p">(</span><span class="n">series_uid</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="n">patient_id</span><span class="p">,</span>
-                                  <span class="n">frame_of_ref_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;FrameOfReferenceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+                                  <span class="n">frame_of_ref_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"FrameOfReferenceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
 
                 
-        <span class="k">elif</span> <span class="n">modality</span> <span class="o">==</span> <span class="s2">&quot;RTSTRUCT&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">modality</span> <span class="o">==</span> <span class="s2">"RTSTRUCT"</span><span class="p">:</span>
             <span class="n">ref_series_uids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;ReferencedFrameOfReferenceSequence&quot;</span><span class="p">,</span> <span class="p">[]):</span>
-                <span class="n">struct_frame_uid</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="s2">&quot;FrameOfReferenceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">study</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="s2">&quot;RTReferencedStudySequence&quot;</span><span class="p">,</span> <span class="p">[]):</span>
-                    <span class="k">for</span> <span class="n">series</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">study</span><span class="p">,</span> <span class="s2">&quot;RTReferencedSeriesSequence&quot;</span><span class="p">,</span> <span class="p">[]):</span>
-                        <span class="n">uid</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="s2">&quot;SeriesInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"ReferencedFrameOfReferenceSequence"</span><span class="p">,</span> <span class="p">[]):</span>
+                <span class="n">struct_frame_uid</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="s2">"FrameOfReferenceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">study</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="s2">"RTReferencedStudySequence"</span><span class="p">,</span> <span class="p">[]):</span>
+                    <span class="k">for</span> <span class="n">series</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">study</span><span class="p">,</span> <span class="s2">"RTReferencedSeriesSequence"</span><span class="p">,</span> <span class="p">[]):</span>
+                        <span class="n">uid</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="s2">"SeriesInstanceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
                         <span class="k">if</span> <span class="n">uid</span><span class="p">:</span>
                             <span class="n">ref_series_uids</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">uid</span><span class="p">)</span>
             <span class="n">rtstructs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">RTStructCandidate</span><span class="p">(</span>
                 <span class="n">path</span><span class="o">=</span><span class="n">f</span><span class="p">,</span>
-                <span class="n">sop_class</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SOPClassUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                <span class="n">sop_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SOPInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">sop_class</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"SOPClassUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">sop_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"SOPInstanceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
                 <span class="n">patient_id</span><span class="o">=</span><span class="n">patient_id</span><span class="p">,</span>
                 <span class="n">ref_series_uids</span><span class="o">=</span><span class="n">ref_series_uids</span><span class="p">,</span>
                 <span class="n">frame_of_ref_uid</span><span class="o">=</span><span class="n">struct_frame_uid</span><span class="p">,</span>
             <span class="p">))</span>
 
-        <span class="k">elif</span> <span class="n">modality</span> <span class="o">==</span> <span class="s2">&quot;RTPLAN&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">modality</span> <span class="o">==</span> <span class="s2">"RTPLAN"</span><span class="p">:</span>
             <span class="n">ref_struct</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">ref_seq</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;ReferencedStructureSetSequence&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">ref_seq</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"ReferencedStructureSetSequence"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">ref_seq</span><span class="p">:</span>
                 <span class="n">ref</span> <span class="o">=</span> <span class="n">ref_seq</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="n">ref_struct</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="nb">getattr</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="s2">&quot;ReferencedSOPClassUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                    <span class="nb">getattr</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="s2">&quot;ReferencedSOPInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="s2">"ReferencedSOPClassUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="s2">"ReferencedSOPInstanceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
                 <span class="p">)</span>
             
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">radiationType</span><span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;RadiationType&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+                <span class="n">radiationType</span><span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"RadiationType"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
             <span class="k">except</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;RadiationTag not defined in </span><span class="si">{f}</span><span class="s2">, filter disabled&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"RadiationTag not defined in </span><span class="si">{f}</span><span class="s2">, filter disabled"</span><span class="p">)</span>
                 <span class="n">radiationType</span> <span class="o">=</span> <span class="kc">None</span>
                 
             <span class="n">rtplans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">RTPlanCandidate</span><span class="p">(</span>
                 <span class="n">path</span><span class="o">=</span><span class="n">f</span><span class="p">,</span>
-                <span class="n">sop_class</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SOPClassUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                <span class="n">sop_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SOPInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>                
+                <span class="n">sop_class</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"SOPClassUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">sop_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"SOPInstanceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>                
                 <span class="n">radiationType</span><span class="o">=</span><span class="n">radiationType</span><span class="p">,</span>
                 <span class="n">patient_id</span><span class="o">=</span><span class="n">patient_id</span><span class="p">,</span>
                 <span class="n">ref_struct</span><span class="o">=</span><span class="n">ref_struct</span><span class="p">,</span>
             <span class="p">))</span>
 
-        <span class="k">elif</span> <span class="n">modality</span> <span class="o">==</span> <span class="s2">&quot;RTDOSE&quot;</span><span class="p">:</span>
-            <span class="n">dose_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;DoseType&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;DoseComment&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-            <span class="n">dose_SumType</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;DoseSummationType&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">modality</span> <span class="o">==</span> <span class="s2">"RTDOSE"</span><span class="p">:</span>
+            <span class="n">dose_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"DoseType"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"DoseComment"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="n">dose_SumType</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"DoseSummationType"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
             <span class="n">fname</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-            <span class="n">is_let</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;LET&quot;</span> <span class="ow">in</span> <span class="n">label</span> <span class="ow">or</span> <span class="s2">&quot;LET&quot;</span> <span class="ow">in</span> <span class="n">fname</span> <span class="ow">or</span> <span class="n">dose_type</span> <span class="o">==</span> <span class="s2">&quot;LET&quot;</span><span class="p">)</span>
+            <span class="n">is_let</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"LET"</span> <span class="ow">in</span> <span class="n">label</span> <span class="ow">or</span> <span class="s2">"LET"</span> <span class="ow">in</span> <span class="n">fname</span> <span class="ow">or</span> <span class="n">dose_type</span> <span class="o">==</span> <span class="s2">"LET"</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">is_let</span><span class="p">:</span>
-                <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">&quot;LET&quot;</span>
-            <span class="k">elif</span> <span class="n">dose_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;PHYSICAL&quot;</span><span class="p">):</span>
-                <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">&quot;PHYSICAL&quot;</span>
-            <span class="k">elif</span> <span class="n">dose_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;EFFECTIVE&quot;</span><span class="p">):</span>
-                <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">&quot;EFFECTIVE&quot;</span>
+                <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">"LET"</span>
+            <span class="k">elif</span> <span class="n">dose_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"PHYSICAL"</span><span class="p">):</span>
+                <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">"PHYSICAL"</span>
+            <span class="k">elif</span> <span class="n">dose_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"EFFECTIVE"</span><span class="p">):</span>
+                <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">"EFFECTIVE"</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">&quot;UNKNOWN&quot;</span>
+                <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">"UNKNOWN"</span>
 
             <span class="n">ref_plan_sop</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">ref_plan_seq</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;ReferencedRTPlanSequence&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">ref_plan_seq</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"ReferencedRTPlanSequence"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">ref_plan_seq</span><span class="p">:</span>
-                <span class="n">ref_plan_sop</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ref_plan_seq</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;ReferencedSOPInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">ref_plan_sop</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ref_plan_seq</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">"ReferencedSOPInstanceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
             <span class="n">rtdoses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">RTDoseCandidate</span><span class="p">(</span>
                 <span class="n">path</span><span class="o">=</span><span class="n">f</span><span class="p">,</span>
-                <span class="n">sop_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;SOPInstanceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">sop_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"SOPInstanceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
                 <span class="n">patient_id</span><span class="o">=</span><span class="n">patient_id</span><span class="p">,</span>
                 <span class="n">dose_kind</span><span class="o">=</span><span class="n">dose_kind</span><span class="p">,</span>
                 <span class="n">dose_SumType</span><span class="o">=</span><span class="n">dose_SumType</span><span class="p">,</span>
                 <span class="n">ref_plan_sop</span><span class="o">=</span><span class="n">ref_plan_sop</span><span class="p">,</span>
-                <span class="n">frame_of_ref_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;FrameOfReferenceUID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">frame_of_ref_uid</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"FrameOfReferenceUID"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="p">))</span>
 
     <span class="k">return</span> <span class="n">ct_series</span><span class="p">,</span> <span class="n">rtstructs</span><span class="p">,</span> <span class="n">rtplans</span><span class="p">,</span> <span class="n">rtdoses</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_best_dose</span><span class="p">(</span><span class="n">doses_of_kind</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">fallback_pool</span><span class="p">,</span> <span class="n">kind_label</span><span class="p">,</span>
                <span class="n">frame_of_ref_uid</span><span class="p">,</span> <span class="n">link_warnings</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Pick the best RTDOSE candidate of one kind (&quot;physical&quot; or &quot;LET&quot;),</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Pick the best RTDOSE candidate of one kind ("physical" or "LET"),</span>
 <span class="sd">    trying progressively weaker (but still verifiable) links instead of</span>
 <span class="sd">    ever guessing. If nothing can be verified, return a sentinel object</span>
 <span class="sd">    that will cause a clear crash downstream rather than silently</span>
 <span class="sd">    proceeding with a wrong file.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="c1"># if no candidates of this kind AND no fallback candidates, nothing to pick</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">doses_of_kind</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">fallback_pool</span><span class="p">:</span>
@@ -466,14 +466,14 @@
         <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;No </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2"> RTDOSE references the matched RTPLAN, &quot;</span>
-                    <span class="s2">&quot;but one shares the same FrameOfReferenceUID as the &quot;</span>
-                    <span class="s2">&quot;matched CT/RTSTRUCT; using that instead.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"No </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2"> RTDOSE references the matched RTPLAN, "</span>
+                    <span class="s2">"but one shares the same FrameOfReferenceUID as the "</span>
+                    <span class="s2">"matched CT/RTSTRUCT; using that instead."</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;No RTPLAN available, but one </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2"> RTDOSE shares the same FrameOfReferenceUID as the &quot;</span>
-                    <span class="s2">&quot;matched CT/RTSTRUCT; using that instead.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"No RTPLAN available, but one </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2"> RTDOSE shares the same FrameOfReferenceUID as the "</span>
+                    <span class="s2">"matched CT/RTSTRUCT; using that instead."</span>
                 <span class="p">)</span>
             <span class="k">return</span> <span class="n">match</span>
 
@@ -486,8 +486,8 @@
         <span class="n">match</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">fallback_pool</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">ref_plan_sop</span> <span class="o">==</span> <span class="n">plan</span><span class="o">.</span><span class="n">sop_uid</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;No RTDOSE was tagged or named as </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2">; using an &quot;</span>
-                <span class="s2">&quot;EFFECTIVE RTDOSE because it references the matched RTPLAN.&quot;</span>
+                <span class="sa">f</span><span class="s2">"No RTDOSE was tagged or named as </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2">; using an "</span>
+                <span class="s2">"EFFECTIVE RTDOSE because it references the matched RTPLAN."</span>
             <span class="p">)</span>
             
             <span class="k">return</span> <span class="n">match</span>
@@ -499,14 +499,14 @@
         <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;No fallback RTDOSE references the matched RTPLAN, &quot;</span>
-                    <span class="s2">&quot;but one shares the same FrameOfReferenceUID as the &quot;</span>
-                    <span class="s2">&quot;matched CT/RTSTRUCT; using that instead.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"No fallback RTDOSE references the matched RTPLAN, "</span>
+                    <span class="s2">"but one shares the same FrameOfReferenceUID as the "</span>
+                    <span class="s2">"matched CT/RTSTRUCT; using that instead."</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;No RTPLAN available, but one fallback RTDOSE shares the same FrameOfReferenceUID as the &quot;</span>
-                    <span class="s2">&quot;matched CT/RTSTRUCT; using that instead.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"No RTPLAN available, but one fallback RTDOSE shares the same FrameOfReferenceUID as the "</span>
+                    <span class="s2">"matched CT/RTSTRUCT; using that instead."</span>
                 <span class="p">)</span>
             <span class="k">return</span> <span class="n">match</span>
 
@@ -515,7 +515,7 @@
     <span class="c1"># usually correct; flag it so the caller can decide whether to trust it</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">doses_of_kind</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Only one </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2"> RTDOSE file found; USING IT WITHOUT MATCH to the RTPLAN or CT/RTSTRUCT.&quot;</span>
+            <span class="sa">f</span><span class="s2">"Only one </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2"> RTDOSE file found; USING IT WITHOUT MATCH to the RTPLAN or CT/RTSTRUCT."</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">doses_of_kind</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
@@ -523,8 +523,8 @@
     <span class="c1"># force a hard failure </span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">doses_of_kind</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Multiple </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2"> RTDOSE files found and none verifiably &quot;</span>
-            <span class="s2">&quot;link to the matched RTPLAN or CT/RTSTRUCT — refusing to guess.&quot;</span>
+            <span class="sa">f</span><span class="s2">"Multiple </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2"> RTDOSE files found and none verifiably "</span>
+            <span class="s2">"link to the matched RTPLAN or CT/RTSTRUCT — refusing to guess."</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">_AMBIGUOUS_DOSE</span>
     
@@ -532,24 +532,24 @@
     <span class="c1"># If no matches are found, and exactly one unlinked candidate of the fallback dose type exists, pick it</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fallback_pool</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;No RTDOSE was tagged or named as </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2">; using the only &quot;</span>
-            <span class="s2">&quot;EFFECTIVE RTDOSE found, without a verified link.&quot;</span>
+            <span class="sa">f</span><span class="s2">"No RTDOSE was tagged or named as </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2">; using the only "</span>
+            <span class="s2">"EFFECTIVE RTDOSE found, without a verified link."</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">fallback_pool</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="c1">#  multiple unlinked fallback candidates — force a hard failure</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fallback_pool</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;No RTDOSE was tagged or named as </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2">, and multiple &quot;</span>
-            <span class="s2">&quot;EFFECTIVE RTDOSE files exist with no verifiable link — &quot;</span>
-            <span class="s2">&quot;refusing to guess.&quot;</span>
+            <span class="sa">f</span><span class="s2">"No RTDOSE was tagged or named as </span><span class="si">{</span><span class="n">kind_label</span><span class="si">}</span><span class="s2">, and multiple "</span>
+            <span class="s2">"EFFECTIVE RTDOSE files exist with no verifiable link — "</span>
+            <span class="s2">"refusing to guess."</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">_AMBIGUOUS_DOSE</span>
 
     <span class="k">return</span> <span class="kc">None</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_strict_chain</span><span class="p">(</span><span class="n">ct_series</span><span class="p">,</span> <span class="n">rtstructs</span><span class="p">,</span> <span class="n">rtplans</span><span class="p">,</span> <span class="n">rad_type</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve a valid RTPLAN/RTSTRUCT/CT-series chain for a given folder.</span>
+<span class="w">    </span><span class="sd">"""Resolve a valid RTPLAN/RTSTRUCT/CT-series chain for a given folder.</span>
 
 <span class="sd">    Candidate RTPLANs are tried in the following priority order:</span>
 <span class="sd">      1. Plans whose RadiationType matches the requested `rad_type`.</span>
@@ -572,7 +572,7 @@
 <span class="sd">        rtplans: List of RTPLAN objects, each exposing RadiationType,</span>
 <span class="sd">            and ref_struct (a (sop_class, sop_uid) tuple).</span>
 <span class="sd">        rad_type: The radiation type requested by the user (e.g.</span>
-<span class="sd">            &quot;PROTON&quot;), used to prioritize matching plans.</span>
+<span class="sd">            "PROTON"), used to prioritize matching plans.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        A tuple (plan, struct, series_uid, fully_verified):</span>
@@ -586,7 +586,7 @@
 <span class="sd">              fallback.</span>
 <span class="sd">        If no valid chain can be resolved at all, returns</span>
 <span class="sd">        (None, None, None, False).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">matching</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">rtplans</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">radiationType</span> <span class="o">==</span> <span class="n">rad_type</span><span class="p">]</span>
     <span class="n">others</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">rtplans</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">radiationType</span> <span class="o">!=</span> <span class="n">rad_type</span><span class="p">]</span>
     <span class="n">plan_candidates</span> <span class="o">=</span> <span class="n">matching</span> <span class="o">+</span> <span class="n">others</span> <span class="o">+</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
@@ -611,9 +611,9 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_fallback_chain</span><span class="p">(</span><span class="n">ct_series</span><span class="p">,</span> <span class="n">rtstructs</span><span class="p">,</span> <span class="n">rtplans</span><span class="p">,</span> <span class="n">link_warnings</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;No fully cross-referenced combination exists. Build the best</span>
+<span class="w">    </span><span class="sd">"""No fully cross-referenced combination exists. Build the best</span>
 <span class="sd">    available guess one piece at a time, logging exactly what had to be</span>
-<span class="sd">    assumed instead of confirmed.&quot;&quot;&quot;</span>
+<span class="sd">    assumed instead of confirmed."""</span>
     <span class="n">struct</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rtstructs</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">ref_series_uids</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">ct_series</span><span class="p">)),</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">struct</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">series_uid</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">uid</span> <span class="k">for</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">ref_series_uids</span> <span class="k">if</span> <span class="n">uid</span> <span class="ow">in</span> <span class="n">ct_series</span><span class="p">)</span>
@@ -621,14 +621,14 @@
         <span class="n">series_uid</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">ct_series</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">rtstructs</span><span class="p">:</span>
             <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="s2">&quot;No RTSTRUCT references any of the discovered CT series; using &quot;</span>
-                <span class="s2">&quot;the first RTSTRUCT found without a verified CT link.&quot;</span>
+                <span class="s2">"No RTSTRUCT references any of the discovered CT series; using "</span>
+                <span class="s2">"the first RTSTRUCT found without a verified CT link."</span>
             <span class="p">)</span>
             <span class="n">struct</span> <span class="o">=</span> <span class="n">rtstructs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">series_uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Assuming CT series </span><span class="si">{</span><span class="n">series_uid</span><span class="si">}</span><span class="s2"> since it could not be &quot;</span>
-                    <span class="s2">&quot;confirmed via RTSTRUCT reference tags.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Assuming CT series </span><span class="si">{</span><span class="n">series_uid</span><span class="si">}</span><span class="s2"> since it could not be "</span>
+                    <span class="s2">"confirmed via RTSTRUCT reference tags."</span>
                 <span class="p">)</span>
 
     <span class="n">plan</span> <span class="o">=</span> <span class="kc">None</span>
@@ -639,30 +639,30 @@
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">rtplans</span><span class="p">:</span>
         <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="s2">&quot;No RTPLAN references the selected RTSTRUCT; using the first &quot;</span>
-            <span class="s2">&quot;RTPLAN found without a verified link.&quot;</span>
+            <span class="s2">"No RTPLAN references the selected RTSTRUCT; using the first "</span>
+            <span class="s2">"RTPLAN found without a verified link."</span>
         <span class="p">)</span>
         <span class="n">plan</span> <span class="o">=</span> <span class="n">rtplans</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="k">return</span> <span class="n">plan</span><span class="p">,</span> <span class="n">struct</span><span class="p">,</span> <span class="n">series_uid</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_AmbiguousDose</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Sentinel returned when multiple RTDOSE candidates exist and none can</span>
 <span class="sd">    be verifiably linked to the matched plan/structure. Any attempt to use</span>
 <span class="sd">    this as a real candidate (accessing .path, .sop_uid, etc.) raises</span>
 <span class="sd">    AttributeError immediately, so the ambiguity surfaces as a hard crash</span>
 <span class="sd">    instead of a silently wrong file being picked.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Ambiguous RTDOSE match: cannot access &#39;.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; — multiple &quot;</span>
-            <span class="s2">&quot;unlinked candidates were found and none could be picked safely. &quot;</span>
-            <span class="s2">&quot;Resolve manually (check link_warnings) before proceeding.&quot;</span>
+            <span class="sa">f</span><span class="s2">"Ambiguous RTDOSE match: cannot access '.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">' — multiple "</span>
+            <span class="s2">"unlinked candidates were found and none could be picked safely. "</span>
+            <span class="s2">"Resolve manually (check link_warnings) before proceeding."</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__bool__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># so `if dose:` style checks still behave like &quot;something is there&quot;</span>
+        <span class="c1"># so `if dose:` style checks still behave like "something is there"</span>
         <span class="c1"># forcing any downstream .path access to be the point of failure</span>
         <span class="k">return</span> <span class="kc">True</span>
 
@@ -672,7 +672,7 @@
 <div class="viewcode-block" id="find_dicom_files">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.find_dicom_files">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">find_dicom_files</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">rad_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Auto-discover RT Dose (physical dose, LET), RT Struct, RT Plan and CT</span>
 <span class="sd">    files belonging to the same plan, by inspecting DICOM modality tags</span>
 <span class="sd">    and cross-reference (Referenced UID) tags. The folder (and its</span>
@@ -683,19 +683,19 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    dict with keys:</span>
-<span class="sd">        &quot;dose&quot;, &quot;let&quot;, &quot;rtstruct&quot;, &quot;rtplan&quot; : Path or None</span>
-<span class="sd">        &quot;CT&quot;          : Path to the directory holding the matched CT</span>
+<span class="sd">        "dose", "let", "rtstruct", "rtplan" : Path or None</span>
+<span class="sd">        "CT"          : Path to the directory holding the matched CT</span>
 <span class="sd">                        series, or None</span>
-<span class="sd">        &quot;Patient_ID&quot;  : str or None</span>
-<span class="sd">        &quot;linked&quot;      : True if RTPLAN -&gt; RTSTRUCT -&gt; CT was fully</span>
+<span class="sd">        "Patient_ID"  : str or None</span>
+<span class="sd">        "linked"      : True if RTPLAN -&gt; RTSTRUCT -&gt; CT was fully</span>
 <span class="sd">                        confirmed via DICOM reference tags; False if a</span>
 <span class="sd">                        fallback/best-guess match had to be used; None</span>
-<span class="sd">                        if there wasn&#39;t enough data to even attempt the</span>
+<span class="sd">                        if there wasn't enough data to even attempt the</span>
 <span class="sd">                        check (e.g. no RTSTRUCT and no CT found at all).</span>
-<span class="sd">        &quot;link_warnings&quot;: list[str], one entry per fallback</span>
-<span class="sd">                        that was needed, explaining what couldn&#39;t be</span>
+<span class="sd">        "link_warnings": list[str], one entry per fallback</span>
+<span class="sd">                        that was needed, explaining what couldn't be</span>
 <span class="sd">                        confirmed and what was used instead.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
     <span class="n">link_warnings</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -705,8 +705,8 @@
 
     <span class="k">if</span> <span class="n">struct</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">rtstructs</span> <span class="ow">or</span> <span class="n">ct_series</span><span class="p">):</span>
         <span class="c1"># The strict search found nothing usable at all; fall back.</span>
-        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Could not find an RTPLAN/RTSTRUCT/CT combination that fully &quot;</span>
-        <span class="s2">&quot;cross-references; falling back to best-effort matching.&quot;</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">"Could not find an RTPLAN/RTSTRUCT/CT combination that fully "</span>
+        <span class="s2">"cross-references; falling back to best-effort matching."</span>
         <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
         
@@ -716,20 +716,20 @@
         
         <span class="c1"># A struct/CT-only chain was found (e.g. no RTPLAN references it),</span>
         <span class="c1"># but there are RTPLAN files sitting in the folder we never matched.</span>
-        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">rtplans</span><span class="p">)</span><span class="si">}</span><span class="s2"> RTPLAN file(s) found but none reference the &quot;</span>
-        <span class="s2">&quot;matched RTSTRUCT; proceeding without a confirmed RTPLAN.&quot;</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">rtplans</span><span class="p">)</span><span class="si">}</span><span class="s2"> RTPLAN file(s) found but none reference the "</span>
+        <span class="s2">"matched RTSTRUCT; proceeding without a confirmed RTPLAN."</span>
         <span class="n">link_warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
-    <span class="n">physical_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">&quot;PHYSICAL&quot;</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_SumType</span> <span class="o">==</span> <span class="s2">&quot;PLAN&quot;</span> <span class="p">)]</span>
-    <span class="n">effective_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">&quot;EFFECTIVE&quot;</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_SumType</span> <span class="o">==</span> <span class="s2">&quot;PLAN&quot;</span> <span class="p">)]</span>
-    <span class="n">let_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">&quot;LET&quot;</span><span class="p">]</span>
+    <span class="n">physical_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">"PHYSICAL"</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_SumType</span> <span class="o">==</span> <span class="s2">"PLAN"</span> <span class="p">)]</span>
+    <span class="n">effective_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">"EFFECTIVE"</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_SumType</span> <span class="o">==</span> <span class="s2">"PLAN"</span> <span class="p">)]</span>
+    <span class="n">let_doses</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">rtdoses</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">dose_kind</span> <span class="o">==</span> <span class="s2">"LET"</span><span class="p">]</span>
     
     <span class="n">frame_of_ref_uid</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">frame_of_ref_uid</span> <span class="k">if</span> <span class="n">struct</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
     
     <span class="c1">#look for best matching physical dose, at worst, look for effective dose and scale by 10%</span>
-    <span class="n">dose</span> <span class="o">=</span> <span class="n">_best_dose</span><span class="p">(</span><span class="n">physical_doses</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">effective_doses</span><span class="p">,</span> <span class="s2">&quot;physical&quot;</span><span class="p">,</span>
+    <span class="n">dose</span> <span class="o">=</span> <span class="n">_best_dose</span><span class="p">(</span><span class="n">physical_doses</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">effective_doses</span><span class="p">,</span> <span class="s2">"physical"</span><span class="p">,</span>
                       <span class="n">frame_of_ref_uid</span><span class="p">,</span> <span class="n">link_warnings</span><span class="p">)</span>
-    <span class="n">let</span> <span class="o">=</span> <span class="n">_best_dose</span><span class="p">(</span><span class="n">let_doses</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="p">[],</span> <span class="s2">&quot;LET&quot;</span><span class="p">,</span>
+    <span class="n">let</span> <span class="o">=</span> <span class="n">_best_dose</span><span class="p">(</span><span class="n">let_doses</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="p">[],</span> <span class="s2">"LET"</span><span class="p">,</span>
                      <span class="n">frame_of_ref_uid</span><span class="p">,</span> <span class="n">link_warnings</span><span class="p">)</span>
     
     <span class="n">ct_dir</span> <span class="o">=</span> <span class="n">ct_series</span><span class="p">[</span><span class="n">series_uid</span><span class="p">]</span><span class="o">.</span><span class="n">directory</span> <span class="k">if</span> <span class="n">series_uid</span> <span class="ow">in</span> <span class="n">ct_series</span> <span class="k">else</span> <span class="kc">None</span>
@@ -747,18 +747,18 @@
         <span class="n">linked</span> <span class="o">=</span> <span class="n">verified</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">link_warnings</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
 
     <span class="n">found</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;dose&quot;</span><span class="p">:</span> <span class="n">dose</span><span class="o">.</span><span class="n">path</span> <span class="k">if</span> <span class="n">dose</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="s2">&quot;let&quot;</span><span class="p">:</span> <span class="n">let</span><span class="o">.</span><span class="n">path</span> <span class="k">if</span> <span class="n">let</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="s2">&quot;rtstruct&quot;</span><span class="p">:</span> <span class="n">struct</span><span class="o">.</span><span class="n">path</span> <span class="k">if</span> <span class="n">struct</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="s2">&quot;rtplan&quot;</span><span class="p">:</span> <span class="n">plan</span><span class="o">.</span><span class="n">path</span> <span class="k">if</span> <span class="n">plan</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="s2">&quot;CT&quot;</span><span class="p">:</span> <span class="n">ct_dir</span><span class="p">,</span>
-        <span class="s2">&quot;Patient_ID&quot;</span><span class="p">:</span> <span class="n">patient_id</span><span class="p">,</span>
-        <span class="s2">&quot;linked&quot;</span><span class="p">:</span> <span class="n">linked</span><span class="p">,</span>
-        <span class="s2">&quot;link_warnings&quot;</span><span class="p">:</span> <span class="n">link_warnings</span>
+        <span class="s2">"dose"</span><span class="p">:</span> <span class="n">dose</span><span class="o">.</span><span class="n">path</span> <span class="k">if</span> <span class="n">dose</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">"let"</span><span class="p">:</span> <span class="n">let</span><span class="o">.</span><span class="n">path</span> <span class="k">if</span> <span class="n">let</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">"rtstruct"</span><span class="p">:</span> <span class="n">struct</span><span class="o">.</span><span class="n">path</span> <span class="k">if</span> <span class="n">struct</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">"rtplan"</span><span class="p">:</span> <span class="n">plan</span><span class="o">.</span><span class="n">path</span> <span class="k">if</span> <span class="n">plan</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s2">"CT"</span><span class="p">:</span> <span class="n">ct_dir</span><span class="p">,</span>
+        <span class="s2">"Patient_ID"</span><span class="p">:</span> <span class="n">patient_id</span><span class="p">,</span>
+        <span class="s2">"linked"</span><span class="p">:</span> <span class="n">linked</span><span class="p">,</span>
+        <span class="s2">"link_warnings"</span><span class="p">:</span> <span class="n">link_warnings</span>
     <span class="p">}</span>
     
     <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">link_warnings</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;⚠&quot;</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"⚠"</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
     
     <span class="k">return</span> <span class="n">found</span></div>
 
@@ -769,7 +769,7 @@
 <div class="viewcode-block" id="load_ct_series">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.load_ct_series">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_ct_series</span><span class="p">(</span><span class="n">ct_folder</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Load a multi-slice CT DICOM series from a folder.</span>
 <span class="sd"> </span>
 <span class="sd">    Slices are sorted by ImagePositionPatient z-coordinate.</span>
@@ -780,23 +780,23 @@
 <span class="sd">    -------</span>
 <span class="sd">    sitk_image : SimpleITK.Image  (x, y, z ordering internally)</span>
 <span class="sd">    ct_geometry : dict with keys:</span>
-<span class="sd">        &quot;origin&quot;      : [x0, y0, z0]  mm  (corner of first voxel)</span>
-<span class="sd">        &quot;spacing&quot;     : [dx, dy, dz]  mm</span>
-<span class="sd">        &quot;shape&quot;       : (nz, ny, nx)  — numpy (z,y,x) convention</span>
-<span class="sd">        &quot;z_positions&quot; : np.ndarray of slice z-coordinates  length nz</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        "origin"      : [x0, y0, z0]  mm  (corner of first voxel)</span>
+<span class="sd">        "spacing"     : [dx, dy, dz]  mm</span>
+<span class="sd">        "shape"       : (nz, ny, nx)  — numpy (z,y,x) convention</span>
+<span class="sd">        "z_positions" : np.ndarray of slice z-coordinates  length nz</span>
+<span class="sd">    """</span>
     <span class="n">ct_folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">ct_folder</span><span class="p">)</span>
     <span class="n">slices</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">ct_folder</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.dcm&quot;</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">ct_folder</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"*.dcm"</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">ds</span> <span class="o">=</span> <span class="n">pydicom</span><span class="o">.</span><span class="n">dcmread</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">stop_before_pixels</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;Modality&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;CT&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"Modality"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"CT"</span><span class="p">:</span>
                 <span class="n">slices</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="nb">float</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">ImagePositionPatient</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">ds</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">continue</span>
  
     <span class="k">if</span> <span class="ow">not</span> <span class="n">slices</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No CT DICOM files found in </span><span class="si">{</span><span class="n">ct_folder</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No CT DICOM files found in </span><span class="si">{</span><span class="n">ct_folder</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
  
     <span class="n">slices</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>          <span class="c1"># sort by z-position</span>
     <span class="n">z_positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">])</span>
@@ -812,7 +812,7 @@
     <span class="n">reader</span> <span class="o">=</span> <span class="n">sitk</span><span class="o">.</span><span class="n">ImageSeriesReader</span><span class="p">()</span>
     <span class="n">dicom_names</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">GetGDCMSeriesFileNames</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ct_folder</span><span class="p">),</span><span class="n">series_uid</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">dicom_names</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">slices</span><span class="p">):</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Check CT reading, not all slices are correctly read</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Check CT reading, not all slices are correctly read</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
         <span class="c1"># fallback: use our sorted file list</span>
         <span class="n">dicom_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slices</span><span class="p">]</span>
     <span class="n">reader</span><span class="o">.</span><span class="n">SetFileNames</span><span class="p">(</span><span class="n">dicom_names</span><span class="p">)</span>
@@ -823,19 +823,19 @@
     <span class="n">nx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">first_ds</span><span class="o">.</span><span class="n">Columns</span><span class="p">)</span>
  
     <span class="n">ct_geometry</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;origin&quot;</span>     <span class="p">:</span> <span class="n">origin</span><span class="p">,</span>          <span class="c1"># itk [x0, y0, z0]</span>
-        <span class="s2">&quot;spacing&quot;</span>    <span class="p">:</span> <span class="p">[</span><span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span><span class="p">],</span>    <span class="c1"># itk [dx, dy, dz]</span>
-        <span class="s2">&quot;shape&quot;</span>      <span class="p">:</span> <span class="p">(</span><span class="n">nz</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span>    <span class="c1"># numpy (x, y, z)</span>
-        <span class="s2">&quot;z_positions&quot;</span><span class="p">:</span> <span class="n">z_positions</span><span class="p">,</span>
+        <span class="s2">"origin"</span>     <span class="p">:</span> <span class="n">origin</span><span class="p">,</span>          <span class="c1"># itk [x0, y0, z0]</span>
+        <span class="s2">"spacing"</span>    <span class="p">:</span> <span class="p">[</span><span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span><span class="p">],</span>    <span class="c1"># itk [dx, dy, dz]</span>
+        <span class="s2">"shape"</span>      <span class="p">:</span> <span class="p">(</span><span class="n">nz</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span>    <span class="c1"># numpy (x, y, z)</span>
+        <span class="s2">"z_positions"</span><span class="p">:</span> <span class="n">z_positions</span><span class="p">,</span>
     <span class="p">}</span>
  
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CT loaded: </span><span class="si">{</span><span class="n">nz</span><span class="si">}</span><span class="s2"> slices  spacing=(</span><span class="si">{</span><span class="n">dx</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">dy</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">dz</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">) mm  &quot;</span>
-          <span class="sa">f</span><span class="s2">&quot;shape=</span><span class="si">{</span><span class="n">ct_geometry</span><span class="p">[</span><span class="s1">&#39;shape&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CT loaded: </span><span class="si">{</span><span class="n">nz</span><span class="si">}</span><span class="s2"> slices  spacing=(</span><span class="si">{</span><span class="n">dx</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">dy</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">dz</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">) mm  "</span>
+          <span class="sa">f</span><span class="s2">"shape=</span><span class="si">{</span><span class="n">ct_geometry</span><span class="p">[</span><span class="s1">'shape'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">sitk_image</span><span class="p">,</span> <span class="n">ct_geometry</span></div>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_np_to_sitk</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">ds</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap a numpy (z,y,x) dose array as a properly georeferenced sitk image.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Wrap a numpy (z,y,x) dose array as a properly georeferenced sitk image."""</span>
     <span class="n">img</span> <span class="o">=</span> <span class="n">sitk</span><span class="o">.</span><span class="n">GetImageFromArray</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
     <span class="n">origin</span><span class="p">,</span> <span class="n">spacing</span> <span class="o">=</span> <span class="n">get_grid_geometry</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span> <span class="c1">#[dx, dy, dz]</span>
     
@@ -851,7 +851,7 @@
                                 <span class="n">dose_ds</span><span class="p">,</span>
                                 <span class="n">new_spacing</span><span class="p">,</span>
                                 <span class="n">interpolator</span> <span class="o">=</span> <span class="n">sitk</span><span class="o">.</span><span class="n">sitkLinear</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Resample RTDOSE onto a new isotropic/anisotropic grid</span>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -864,7 +864,7 @@
 <span class="sd">    resampled_dose : sitk.Image</span>
 <span class="sd">    updated_info : dict</span>
 <span class="sd">    dose_ds : updated dataset</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">old_spacing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dose_sitk</span><span class="o">.</span><span class="n">GetSpacing</span><span class="p">())</span>
     <span class="n">old_size</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dose_sitk</span><span class="o">.</span><span class="n">GetSize</span><span class="p">())</span>
@@ -909,11 +909,11 @@
     <span class="n">dose_ds</span><span class="o">.</span><span class="n">NumberOfFrames</span> <span class="o">=</span> <span class="n">shape_np</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="n">updated_info</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;spacing&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_spacing</span><span class="p">),</span>
-        <span class="s2">&quot;origin&quot;</span><span class="p">:</span> <span class="n">old_origin</span><span class="p">,</span>
-        <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="n">shape_np</span><span class="p">,</span>
-        <span class="s2">&quot;z_positions&quot;</span><span class="p">:</span> <span class="n">z_positions</span><span class="p">,</span>
-        <span class="s2">&quot;z_offsets&quot;</span><span class="p">:</span> <span class="n">z_offsets</span><span class="p">,</span>
+        <span class="s2">"spacing"</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_spacing</span><span class="p">),</span>
+        <span class="s2">"origin"</span><span class="p">:</span> <span class="n">old_origin</span><span class="p">,</span>
+        <span class="s2">"shape"</span><span class="p">:</span> <span class="n">shape_np</span><span class="p">,</span>
+        <span class="s2">"z_positions"</span><span class="p">:</span> <span class="n">z_positions</span><span class="p">,</span>
+        <span class="s2">"z_offsets"</span><span class="p">:</span> <span class="n">z_offsets</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="k">return</span> <span class="p">(</span><span class="n">resampled_dose</span><span class="p">,</span>
@@ -923,14 +923,14 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_reference_ct_volume</span><span class="p">(</span><span class="n">sitk_ct</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract a single 3D CT volume from a 4D (dual-energy / multi-channel)</span>
+<span class="w">    </span><span class="sd">"""Extract a single 3D CT volume from a 4D (dual-energy / multi-channel)</span>
 <span class="sd">    stack, to be used as a resampling reference.</span>
 
 <span class="sd">    If sitk_ct is already 3D, it is returned unchanged. If it is 4D</span>
 <span class="sd">    (e.g. dual-energy CT with two stacked energy volumes), the first</span>
 <span class="sd">    volume along the 4th dimension is extracted and returned as a</span>
 <span class="sd">    proper 3D image (spacing/direction/origin trimmed accordingly).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">sitk_ct</span><span class="o">.</span><span class="n">GetDimension</span><span class="p">()</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">sitk_ct</span>
 
@@ -948,7 +948,7 @@
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.resample_dose_on_ct">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">resample_dose_on_ct</span><span class="p">(</span><span class="n">sitk_dose</span><span class="p">:</span> <span class="n">sitk</span><span class="o">.</span><span class="n">Image</span><span class="p">,</span>
                         <span class="n">sitk_ct</span><span class="p">:</span>   <span class="n">sitk</span><span class="o">.</span><span class="n">Image</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sitk</span><span class="o">.</span><span class="n">Image</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Resample a dose (or LET) SimpleITK image onto the CT grid.</span>
 <span class="sd"> </span>
 <span class="sd">    The CT image defines the output origin, spacing, direction, and size.</span>
@@ -963,7 +963,7 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    SimpleITK.Image  same grid as sitk_ct</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">sitk_ct</span> <span class="o">=</span> <span class="n">_get_reference_ct_volume</span><span class="p">(</span><span class="n">sitk_ct</span><span class="p">)</span>
     <span class="n">resampler</span> <span class="o">=</span> <span class="n">sitk</span><span class="o">.</span><span class="n">ResampleImageFilter</span><span class="p">()</span>
     <span class="n">resampler</span><span class="o">.</span><span class="n">SetOutputSpacing</span><span class="p">(</span><span class="n">sitk_ct</span><span class="o">.</span><span class="n">GetSpacing</span><span class="p">())</span>
@@ -984,18 +984,18 @@
 <div class="viewcode-block" id="load_dose_grid">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.load_dose_grid">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_dose_grid</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Load a DICOM RT Dose file (dose or LET stored as dose grid).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    array : np.ndarray  shape (z, y, x)</span>
 <span class="sd">    ds    : pydicom Dataset</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">ds</span>    <span class="o">=</span> <span class="n">pydicom</span><span class="o">.</span><span class="n">dcmread</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">scale</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">DoseGridScaling</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="o">.</span><span class="n">DoseUnits</span> <span class="o">==</span> <span class="s2">&quot;GY&quot;</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dose Units are not correct for: &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="o">.</span><span class="n">DoseUnits</span> <span class="o">==</span> <span class="s2">"GY"</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Dose Units are not correct for: '</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">'."</span><span class="p">)</span>
     <span class="n">array</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">pixel_array</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale</span>
     <span class="k">return</span> <span class="n">array</span><span class="p">,</span> <span class="n">ds</span></div>
 
@@ -1004,14 +1004,14 @@
 <div class="viewcode-block" id="get_grid_geometry">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.get_grid_geometry">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_grid_geometry</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Extract (origin, spacing) from an RT Dose dataset.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    origin  : [x0, y0, z0]  mm</span>
 <span class="sd">    spacing : [dx, dy, dz]  mm</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">origin</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">ImagePositionPatient</span><span class="p">]</span>
     <span class="n">pix_sp</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">PixelSpacing</span><span class="p">]</span>  <span class="c1"># [row_spacing=dy, col_spacing=dx]</span>
     <span class="n">dz</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">SliceThickness</span><span class="p">)</span> <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">SliceThickness</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pix_sp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -1026,7 +1026,7 @@
 <span class="c1">#  Structure mask extraction  </span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_roi_maps</span><span class="p">(</span><span class="n">rtstruct_ds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Parse RT Struct and return two lookup dicts.</span>
 
 <span class="sd">    Returns</span>
@@ -1034,7 +1034,7 @@
 <span class="sd">    name_to_roi  : {roi_name_lower: roi_number}</span>
 <span class="sd">    roi_to_contours : {roi_number: [ np.ndarray shape(N,3) ]}</span>
 <span class="sd">        Each array is one contour polygon with columns [x, y, z] in mm.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="c1"># ROI names from StructureSetROISequence</span>
     <span class="n">name_to_roi</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">StructureSetROISequence</span><span class="p">:</span>
@@ -1045,7 +1045,7 @@
     <span class="k">for</span> <span class="n">roi_contour</span> <span class="ow">in</span> <span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">ROIContourSequence</span><span class="p">:</span>
         <span class="n">roi_num</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">roi_contour</span><span class="o">.</span><span class="n">ReferencedROINumber</span><span class="p">)</span>
         <span class="n">contours</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">roi_contour</span><span class="p">,</span> <span class="s2">&quot;ContourSequence&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">roi_contour</span><span class="p">,</span> <span class="s2">"ContourSequence"</span><span class="p">):</span>
             <span class="n">roi_to_contours</span><span class="p">[</span><span class="n">roi_num</span><span class="p">]</span> <span class="o">=</span> <span class="n">contours</span>
             <span class="k">continue</span>
         <span class="k">for</span> <span class="n">contour</span> <span class="ow">in</span> <span class="n">roi_contour</span><span class="o">.</span><span class="n">ContourSequence</span><span class="p">:</span>
@@ -1060,7 +1060,7 @@
 <div class="viewcode-block" id="get_all_structure_names">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.get_all_structure_names">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_all_structure_names</span><span class="p">(</span><span class="n">rtstruct_ds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return list of all structure names in an RT Struct dataset.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Return list of all structure names in an RT Struct dataset."""</span>
     <span class="k">return</span> <span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">ROIName</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
             <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">StructureSetROISequence</span><span class="p">]</span></div>
 
@@ -1076,7 +1076,7 @@
                                <span class="n">spacing</span><span class="p">:</span>     <span class="nb">list</span><span class="p">,</span>
                                <span class="n">shape</span><span class="p">:</span>       <span class="nb">tuple</span><span class="p">,</span>
                                <span class="n">z_positions</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Rasterise RT Struct contours for `struct_name` onto an arbitrary grid.</span>
 <span class="sd"> </span>
 <span class="sd">    This is the core function used for both dose-grid and CT-grid masking.</span>
@@ -1094,14 +1094,14 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    mask : np.ndarray bool, shape (nz, ny, nx)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">name_to_roi</span><span class="p">,</span> <span class="n">roi_to_contours</span> <span class="o">=</span> <span class="n">_build_roi_maps</span><span class="p">(</span><span class="n">rtstruct_ds</span><span class="p">)</span>
  
     <span class="n">key</span> <span class="o">=</span> <span class="n">struct_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">name_to_roi</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Structure &#39;</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">&#39; not found in RT Struct. &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;Available: </span><span class="si">{</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">ROIName</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">StructureSetROISequence</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"Structure '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">' not found in RT Struct. "</span>
+            <span class="sa">f</span><span class="s2">"Available: </span><span class="si">{</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">ROIName</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">StructureSetROISequence</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="n">roi_number</span> <span class="o">=</span> <span class="n">name_to_roi</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
     <span class="n">contours</span>   <span class="o">=</span> <span class="n">roi_to_contours</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">roi_number</span><span class="p">,</span> <span class="p">[])</span>
@@ -1113,7 +1113,7 @@
     <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
  
     <span class="k">if</span> <span class="ow">not</span> <span class="n">contours</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No contour data for &#39;</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No contour data for '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">'."</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">mask</span>
  
     <span class="c1"># Build grid of voxel-centre x,y coordinates (voxel centres = origin + (i+0.5)*spacing)</span>
@@ -1142,13 +1142,13 @@
 <div class="viewcode-block" id="get_roi_center_of_mass">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.get_roi_center_of_mass">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_roi_center_of_mass</span><span class="p">(</span><span class="n">struct_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rtstruct_ds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Compute the 3-D center of mass (mm, in the RT Struct&#39;s patient</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Compute the 3-D center of mass (mm, in the RT Struct's patient</span>
 <span class="sd">    coordinate system) of a structure directly from its contour</span>
 <span class="sd">    polygons — no dose/CT grid required.</span>
 <span class="sd"> </span>
 <span class="sd">    Each contour (one per slice) contributes its own 2-D polygon</span>
-<span class="sd">    centroid, weighted by that contour&#39;s area, so slices with more</span>
+<span class="sd">    centroid, weighted by that contour's area, so slices with more</span>
 <span class="sd">    cross-sectional area count more towards the overall COM volume-weighted approximation without needing a full</span>
 <span class="sd">    3-D mask.</span>
 <span class="sd"> </span>
@@ -1163,20 +1163,20 @@
 <span class="sd">    np.ndarray, shape (3,), or None</span>
 <span class="sd">        ``[x, y, z]`` center of mass in mm. Returns ``None`` if no</span>
 <span class="sd">        usable contour data is available for this structure.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">name_to_roi</span><span class="p">,</span> <span class="n">roi_to_contours</span> <span class="o">=</span> <span class="n">_build_roi_maps</span><span class="p">(</span><span class="n">rtstruct_ds</span><span class="p">)</span>
  
     <span class="n">key</span> <span class="o">=</span> <span class="n">struct_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">name_to_roi</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Structure &#39;</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">&#39; not found in RT Struct. &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;Available: </span><span class="si">{</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">ROIName</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">StructureSetROISequence</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"Structure '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">' not found in RT Struct. "</span>
+            <span class="sa">f</span><span class="s2">"Available: </span><span class="si">{</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">ROIName</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">StructureSetROISequence</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="n">roi_number</span> <span class="o">=</span> <span class="n">name_to_roi</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
     <span class="n">contours</span>   <span class="o">=</span> <span class="n">roi_to_contours</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">roi_number</span><span class="p">,</span> <span class="p">[])</span>
  
     <span class="k">if</span> <span class="ow">not</span> <span class="n">contours</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No contour data for &#39;</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">&#39; — cannot compute center of mass.&quot;</span><span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No contour data for '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">' — cannot compute center of mass."</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span>
  
     <span class="n">centroids</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1198,7 +1198,7 @@
         <span class="n">weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">area</span><span class="p">))</span>
  
     <span class="k">if</span> <span class="ow">not</span> <span class="n">centroids</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not compute a valid centroid for &#39;</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not compute a valid centroid for '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">'."</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span>
  
     <span class="n">centroids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">centroids</span><span class="p">)</span>
@@ -1209,7 +1209,7 @@
 <div class="viewcode-block" id="contour_area_signed">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.contour_area_signed">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">contour_area_signed</span><span class="p">(</span><span class="n">xy</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Signed polygon area via the shoelace formula.</span>
 
 <span class="sd">    Parameters</span>
@@ -1222,7 +1222,7 @@
 <span class="sd">    float</span>
 <span class="sd">        Signed area; positive for counter-clockwise vertex order,</span>
 <span class="sd">        negative for clockwise. Used to detect contour holes.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">xy</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">xy</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
     <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)))</span></div>
 
@@ -1230,7 +1230,7 @@
 <div class="viewcode-block" id="smooth_contour">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.smooth_contour">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">smooth_contour</span><span class="p">(</span><span class="n">poly_xy</span><span class="p">,</span> <span class="n">n_pts</span><span class="o">=</span><span class="mi">300</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Resample a contour polygon onto ``n_pts`` evenly-spaced points using</span>
 <span class="sd">    a periodic B-spline fit. Not used by default in the fractional-mask</span>
 <span class="sd">    pipeline (see inline note in ``get_fractional_mask_on_grid``); kept</span>
@@ -1248,21 +1248,21 @@
 <span class="sd">    np.ndarray, shape (n_pts, 2)</span>
 <span class="sd">        Smoothed polygon vertices. Falls back to the original polygon,</span>
 <span class="sd">        unchanged, if the spline fit fails.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">poly_xy</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">poly_xy</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
         <span class="n">tck</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">splprep</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">per</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">x_s</span><span class="p">,</span> <span class="n">y_s</span> <span class="o">=</span> <span class="n">splev</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_pts</span><span class="p">),</span> <span class="n">tck</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">x_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">])</span> 
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Spline failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Spline failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">poly_xy</span></div>
 
 
 <div class="viewcode-block" id="rasterize_supersampled">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.rasterize_supersampled">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">rasterize_supersampled</span><span class="p">(</span><span class="n">smooth_xy</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">N</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Rasterise one contour polygon onto a grid at N times finer resolution,</span>
 <span class="sd">    then average back down — giving each output voxel a fractional</span>
 <span class="sd">    [0, 1] membership value instead of a hard binary in/out.</span>
@@ -1284,7 +1284,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    np.ndarray, shape (ny, nx), float32</span>
 <span class="sd">        Fractional coverage of each voxel by the polygon, in [0, 1].</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">xi</span> <span class="o">=</span> <span class="p">(</span><span class="n">smooth_xy</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">N</span>
     <span class="n">yi</span> <span class="o">=</span> <span class="p">(</span><span class="n">smooth_xy</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y0</span><span class="p">)</span> <span class="o">/</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">N</span>
 
@@ -1298,7 +1298,7 @@
 <div class="viewcode-block" id="compute_roi_volume_comparison">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.compute_roi_volume_comparison">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_roi_volume_comparison</span><span class="p">(</span><span class="n">frac_mask</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Print and return the total volume of a fractional mask, plus a</span>
 <span class="sd">    per-slice breakdown — useful for sanity-checking</span>
 <span class="sd">    ``get_fractional_mask_on_grid`` output against a TPS-reported volume.</span>
@@ -1314,7 +1314,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        Total volume in cc (sum of fractional weights x voxel volume).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="c1"># Your fractional volume</span>
     <span class="n">vol_frac</span> <span class="o">=</span> <span class="n">frac_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">dz</span> <span class="o">/</span> <span class="mf">1000.0</span>
 
@@ -1322,11 +1322,11 @@
     <span class="c1"># Per-slice breakdown</span>
     <span class="n">frac_per_slice</span>   <span class="o">=</span> <span class="n">frac_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">dz</span> <span class="o">/</span> <span class="mf">1000.0</span>
 
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fractional volume : </span><span class="si">{</span><span class="n">vol_frac</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> cc&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Per-slice :&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Fractional volume : </span><span class="si">{</span><span class="n">vol_frac</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> cc"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Per-slice :"</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">frac_per_slice</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">f</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  slice </span><span class="si">{</span><span class="n">z</span><span class="si">:</span><span class="s2">3d</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">f</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  slice </span><span class="si">{</span><span class="n">z</span><span class="si">:</span><span class="s2">3d</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">f</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">vol_frac</span></div>
 
@@ -1334,8 +1334,8 @@
 <div class="viewcode-block" id="prismatoid_volume">
 <a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.prismatoid_volume">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">prismatoid_volume</span><span class="p">(</span><span class="n">frac_mask</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Volume of a fractional mask via the prismatoid (Simpson&#39;s-rule-like)</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Volume of a fractional mask via the prismatoid (Simpson's-rule-like)</span>
 <span class="sd">    formula between consecutive slices, instead of a flat sum-of-slices</span>
 <span class="sd">    approximation. Slightly more accurate for structures with rapidly</span>
 <span class="sd">    changing cross-sectional area between slices.</span>
@@ -1351,7 +1351,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        Total volume in cc.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">areas</span> <span class="o">=</span> <span class="n">frac_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">dy</span>
     <span class="n">nz</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">areas</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">nz</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
@@ -1374,7 +1374,7 @@
                                 <span class="n">shape</span><span class="p">:</span>       <span class="nb">tuple</span><span class="p">,</span>
                                 <span class="n">z_positions</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                                 <span class="n">supersample</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute a fractional voxel membership mask on an arbitrary grid.</span>
 <span class="sd"> </span>
 <span class="sd">    Each voxel receives a value in [0,1] — the fraction of its physical</span>
@@ -1394,14 +1394,14 @@
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    frac_mask : np.ndarray float32, shape (nz, ny, nx), values in [0, 1]</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">name_to_roi</span><span class="p">,</span> <span class="n">roi_to_contours</span> <span class="o">=</span> <span class="n">_build_roi_maps</span><span class="p">(</span><span class="n">rtstruct_ds</span><span class="p">)</span>
  
     <span class="n">key</span> <span class="o">=</span> <span class="n">struct_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">name_to_roi</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Structure &#39;</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">&#39; not found in RT Struct. &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;Available: </span><span class="si">{</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">ROIName</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">StructureSetROISequence</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"Structure '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">' not found in RT Struct. "</span>
+            <span class="sa">f</span><span class="s2">"Available: </span><span class="si">{</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">ROIName</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">StructureSetROISequence</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="n">roi_number</span> <span class="o">=</span> <span class="n">name_to_roi</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
     <span class="n">contours</span>   <span class="o">=</span> <span class="n">roi_to_contours</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">roi_number</span><span class="p">,</span> <span class="p">[])</span>
@@ -1413,7 +1413,7 @@
     <span class="n">frac_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
  
     <span class="k">if</span> <span class="ow">not</span> <span class="n">contours</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No contour data for &#39;</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No contour data for '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">'."</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">frac_mask</span>
  
     <span class="n">N</span>  <span class="o">=</span> <span class="n">supersample</span>
@@ -1427,7 +1427,7 @@
         <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z_positions</span> <span class="o">-</span> <span class="n">z_val</span><span class="p">)</span>
         <span class="n">z_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">diffs</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">diffs</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">dz</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Contour z=</span><span class="si">{</span><span class="n">z_val</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm is </span><span class="si">{</span><span class="n">diffs</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm from nearest slice&quot;</span><span class="p">)</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Contour z=</span><span class="si">{</span><span class="n">z_val</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm is </span><span class="si">{</span><span class="n">diffs</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm from nearest slice"</span><span class="p">)</span>
         <span class="n">slice_contours</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">])</span>
 
     
