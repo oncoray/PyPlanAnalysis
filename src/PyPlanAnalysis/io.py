@@ -817,7 +817,7 @@ def get_structure_mask_on_grid(struct_name: str,
                                shape:       tuple,
                                z_positions: np.ndarray) -> np.ndarray:
     """
-    Rasterise RT Struct contours for `struct_name` onto an arbitrary grid.
+    Rasterise RT Struct contours as BINARY MASKS for `struct_name` onto an arbitrary grid.
  
     This is the core function used for both dose-grid and CT-grid masking.
     Contour z-values are matched to the nearest z in z_positions.
@@ -826,7 +826,7 @@ def get_structure_mask_on_grid(struct_name: str,
     ----------
     struct_name  : str
     rtstruct_ds  : pydicom Dataset
-    origin       : [x0, y0, z0]  mm — physical coordinate of voxel (0,0,0) corner
+    origin       : [x0, y0, z0]  mm — physical coordinate of voxel (0,0,0) corner, then converted to voxel center
     spacing      : [dx, dy, dz]  mm
     shape        : (nz, ny, nx) — numpy array shape
     z_positions  : 1-D array of z-coordinates for each slice (length nz)
@@ -1013,8 +1013,8 @@ def rasterize_supersampled(smooth_xy, x0, y0, dx, dy, ny, nx, N):
     np.ndarray, shape (ny, nx), float32
         Fractional coverage of each voxel by the polygon, in [0, 1].
     """
-    xi = (smooth_xy[:, 0] - x0) / dx * N
-    yi = (smooth_xy[:, 1] - y0) / dy * N
+    xi = (smooth_xy[:, 0] - x0 + dx/2) / dx * N # account for voxel center! dx/2 shift
+    yi = (smooth_xy[:, 1] - y0 + dy/2) / dy * N
 
     rr, cc = sk_polygon(yi, xi, shape=(ny * N, nx * N))
     super_mask = np.zeros((ny * N, nx * N), dtype=np.float32)
@@ -1091,19 +1091,6 @@ def _classify_holes_by_nesting(slice_polys):
     using point-in-polygon NESTING DEPTH (even-odd rule), instead of only
     testing each polygon against larger-area ones in sequence.
 
-    TECHNICAL JUSTIFICATION: the previous heuristic ("assume the biggest
-    area is an island, test every smaller polygon only against larger
-    ones, stop at the first containing polygon found") only resolves a
-    single level of nesting. It silently misclassifies any ROI where a
-    hole itself contains an island (e.g. two disjoint lobes of the same
-    structure that happen to sit inside an excluded cavity), because that
-    inner island is smaller than the hole AND is contained by it, so it
-    gets flagged as a hole too. Nesting depth is topologically correct
-    for arbitrary levels of nesting: depth 0 = island, depth 1 = hole,
-    depth 2 = island-in-hole, etc. — exactly the even-odd fill rule DICOM
-    RTSTRUCT contours are implicitly meant to be interpreted with, and
-    the same rule general mesh/finite-element boundary reconstruction
-    uses when lofting a surface from stacked polygon loops.
 
     Parameters
     ----------
@@ -1273,7 +1260,7 @@ def _coverage_to_sdf(coverage: np.ndarray, dx: float, dy: float,
     if inside.all():
         return np.full(coverage.shape, 1.0e3, dtype=np.float32)
 
-    dist_in  = distance_transform_edt(inside,  sampling=(dy, dx))
+    dist_in  = distance_transform_edt(inside,  sampling=(dy, dx)) #compute the eclidean distance to the outside (border)
     dist_out = distance_transform_edt(~inside, sampling=(dy, dx))
     sdf = (dist_in - dist_out).astype(np.float32)
 
