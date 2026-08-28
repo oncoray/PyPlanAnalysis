@@ -262,7 +262,7 @@
                         <span class="n">plot_dlvh_2d</span><span class="p">,</span> <span class="n">plot_dlvh_3d</span><span class="p">,</span> <span class="n">save_figures_to_pdf</span><span class="p">,</span> <span class="n">save_figure</span><span class="p">)</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.NTCP</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">NTCPConfig</span><span class="p">,</span><span class="n">NTCPModelBase</span><span class="p">)</span>
-
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">SimpleITK</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sitk</span>
 
 <span class="c1"># ============================================================</span>
@@ -511,6 +511,14 @@
 <span class="sd">        AnalysisResults</span>
 <span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dose_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dose_ds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dose_arr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span>
+                <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dose_ds</span><span class="o">.</span><span class="n">NumberOfFrames</span><span class="p">),</span>
+                <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dose_ds</span><span class="o">.</span><span class="n">Rows</span><span class="p">),</span>
+                <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dose_ds</span><span class="o">.</span><span class="n">Columns</span><span class="p">),</span>
+            <span class="p">)</span>
+    
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dose_arr</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_let_arr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">"Neither dose nor LET could be loaded — nothing to analyse."</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -538,8 +546,11 @@
         <span class="c1"># Using local variables makes analyse() idempotent with respect to</span>
         <span class="c1"># self: repeated calls, in any order, with any combination of flags,</span>
         <span class="c1"># always start from the same pristine self._dose_arr/self._let_arr.</span>
-        <span class="n">dose_arr</span><span class="p">,</span> <span class="n">dose_ds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dose_arr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dose_ds</span>
-        <span class="n">let_arr</span><span class="p">,</span>  <span class="n">let_ds</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_let_arr</span><span class="p">,</span>  <span class="bp">self</span><span class="o">.</span><span class="n">_let_ds</span>
+        <span class="n">dose_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dose_arr</span>
+        <span class="n">dose_ds</span>  <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dose_ds</span><span class="p">)</span>
+        
+        <span class="n">let_arr</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_let_arr</span>
+        <span class="n">let_ds</span>   <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_let_ds</span><span class="p">)</span>
 
         <span class="c1"># --- resample dose/LET only if the array exists ---</span>
         <span class="n">sitk_dose</span> <span class="o">=</span> <span class="n">_np_to_sitk</span><span class="p">(</span><span class="n">dose_arr</span><span class="p">,</span> <span class="n">dose_ds</span><span class="p">)</span> <span class="k">if</span> <span class="n">dose_arr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
@@ -579,7 +590,7 @@
                 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Resampling dose and LET onto custom  </span><span class="si">{</span><span class="n">grid_new</span><span class="si">}</span><span class="s2"> grid..."</span><span class="p">)</span>
                 
                 <span class="k">if</span> <span class="n">sitk_dose</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">res_dose</span><span class="p">,</span> <span class="n">dose_arr</span><span class="p">,</span> <span class="n">dose_geom</span><span class="p">,</span> <span class="n">dose_ds</span> <span class="o">=</span> <span class="n">resample_dose_to_new_grid</span><span class="p">(</span><span class="n">sitk_dose</span><span class="p">,</span>
+                    <span class="n">res_dose</span><span class="p">,</span> <span class="n">dose_arr</span><span class="p">,</span> <span class="n">dose_geom</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">resample_dose_to_new_grid</span><span class="p">(</span><span class="n">sitk_dose</span><span class="p">,</span>
                                                                                             <span class="n">dose_ds</span><span class="p">,</span>
                                                                                             <span class="n">grid_new</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">sitk_let</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  
