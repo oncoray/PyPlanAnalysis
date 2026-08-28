@@ -24,7 +24,7 @@ from .plots    import (plot_cumulative_histogram, plot_dvh_comparison,
                         plot_dlvh_2d, plot_dlvh_3d, save_figures_to_pdf, save_figure)
 
 from .NTCP import (NTCPConfig,NTCPModelBase)
-
+import copy
 import SimpleITK as sitk
 
 # ============================================================
@@ -273,6 +273,14 @@ class PatientPlan:
         AnalysisResults
         """
         self.load()
+        assert self._dose_arr is not None
+        if self._dose_ds is not None:
+            assert tuple(self._dose_arr.shape) == (
+                int(self._dose_ds.NumberOfFrames),
+                int(self._dose_ds.Rows),
+                int(self._dose_ds.Columns),
+            )
+    
         if self._dose_arr is None and self._let_arr is None:
             warnings.warn("Neither dose nor LET could be loaded — nothing to analyse.")
             return None
@@ -300,8 +308,11 @@ class PatientPlan:
         # Using local variables makes analyse() idempotent with respect to
         # self: repeated calls, in any order, with any combination of flags,
         # always start from the same pristine self._dose_arr/self._let_arr.
-        dose_arr, dose_ds = self._dose_arr, self._dose_ds
-        let_arr,  let_ds  = self._let_arr,  self._let_ds
+        dose_arr = self._dose_arr
+        dose_ds  = copy.deepcopy(self._dose_ds)
+        
+        let_arr  = self._let_arr
+        let_ds   = copy.deepcopy(self._let_ds)
 
         # --- resample dose/LET only if the array exists ---
         sitk_dose = _np_to_sitk(dose_arr, dose_ds) if dose_arr is not None else None
@@ -341,7 +352,7 @@ class PatientPlan:
                 print(f"  Resampling dose and LET onto custom  {grid_new} grid...")
                 
                 if sitk_dose is not None:
-                    res_dose, dose_arr, dose_geom, dose_ds = resample_dose_to_new_grid(sitk_dose,
+                    res_dose, dose_arr, dose_geom, _ = resample_dose_to_new_grid(sitk_dose,
                                                                                             dose_ds,
                                                                                             grid_new)
                 if sitk_let is not None:  
