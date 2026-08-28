@@ -82,16 +82,16 @@ NTCP_config = NTCPConfig(
 # 4. Run the analysis
 # ------------------------------------------------------------------
 results = plan.analyse(
-    structures   = None,#['BrainStem', 'Chiasm'],# or None for all
+    structures   = ['BrainStem', 'Chiasm', 'OpticNerve_L', 'OpticNerve_R'],# or None for all
     rbe_cfg      = rbe_cfg,
     metric_cfg   = metric_cfg,
     radiobio_cfg = radiobio_cfg,
     resample_on_CT  = 0,
     resample_on_custom_grid    = 0,
     use_fractional = 1, 
-    supersample  = 2,
+    supersample  = 24,
     supersample_z  = None,
-    max_supersample = 12
+    max_supersample = 24
 )
 
 # ------------------------------------------------------------------

@@ -45,7 +45,7 @@ patient_db = get_current("PatientDB")
 patient = get_current("Patient")
 case = get_current("Case")
 
-export_folder = r'\\sv-onc-fs1\Home$\PARRELLGI\Documents\MBRO\DVH_code_local\PyPlanAnalysis\Tests\test_data\Phantom\Reference_DLVH'
+export_folder = r'N:\fs1-MBRO\WORK\_GiovanniP\PyPlanAnalysis\PyPlanAnalysis\Tests\test_data'
 
 if os.path.isdir(export_folder):
     os.chdir(export_folder)

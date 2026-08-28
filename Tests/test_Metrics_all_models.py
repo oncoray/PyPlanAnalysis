@@ -12,7 +12,7 @@ import pandas as pd
 from pathlib import Path
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
-import Paths
+from Tests import Paths #import Paths
 
 # ============================================================
 #  CONFIG — edit these

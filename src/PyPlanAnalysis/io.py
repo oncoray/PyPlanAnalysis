@@ -1116,6 +1116,125 @@ def _classify_holes_by_nesting(slice_polys):
     return [d % 2 == 1 for d in depth]
 
 
+def _slice_net_area_mm2(slice_polys) -> float:
+    """
+    Net in-plane area (mm²) of one contour slice, subtracting hole loops
+    (nested contours representing a cavity) from their parent polygon's
+    area via ``_classify_holes_by_nesting`` + ``contour_area_signed``.
+
+    Parameters
+    ----------
+    slice_polys : list of np.ndarray, shape (M, 2)
+        All polygon loops belonging to one contour slice (one true z).
+
+    Returns
+    -------
+    float — net area, mm², always >= 0 for a well-formed contour set.
+    """
+    is_hole = _classify_holes_by_nesting(slice_polys)
+    net = 0.0
+    for poly, hole in zip(slice_polys, is_hole):
+        a = abs(contour_area_signed(poly))
+        net += -a if hole else a
+    return net
+
+
+def compute_roi_volume_from_contours(struct_name: str, rtstruct_ds) -> float:
+    """
+    Compute the ROI's total volume (cc) directly from its contour polygon
+    geometry, at the NATIVE contour z-spacing — independent of any
+    dose/LET/analysis grid resolution.
+
+    TECHNICAL JUSTIFICATION: ``get_fractional_mask_on_grid`` (and hence
+    ``compute_dvh_metrics``/``compute_let_metrics`` in metrics.py, which
+    normalise Vx%/Dx%/Lx% by the sum of that mask's fractional weights)
+    reports volume on whatever analysis grid the mask was rasterised on
+    (e.g. a resampled dose/LET grid, ``New_grid`` — commonly coarser than
+    the CT the structure was actually contoured on). For structures that
+    only span a handful of voxels across that grid (small serial OARs:
+    optic nerves, chiasm, lenses, lacrimal glands), that grid-resolution
+    dependence is the dominant source of volume error, which then
+    propagates into every weighted DVH/LVH percentile metric for that
+    structure (they all share the same total-weight normalisation).
+
+    This function instead reconstructs volume the way most TPS systems
+    report "ROI volume" — directly from the contour polygons themselves:
+    net in-plane area per true contour slice (``_slice_net_area_mm2``,
+    correctly excluding holes), trapezoidal integration between
+    consecutive TRUE contour z-planes at their native (possibly
+    irregular) spacing, plus a half-native-spacing end-cap extension at
+    each pole — the same physical convention ``get_fractional_mask_on_grid``
+    uses for its own z-extent padding, so the two stay consistent with
+    each other even though this number is otherwise grid-independent.
+
+    Use this as the authoritative reported ``volume_cc`` for a structure.
+    Note that it is NOT automatically a safe drop-in replacement for the
+    weighted-percentile normalisation used inside ``compute_dvh_metrics``/
+    ``compute_let_metrics`` (Vx%, Dx%, Lx%, ...): those numerators are
+    still computed from the analysis-grid mask, so swapping only the
+    denominator to a different, higher-resolution source is only
+    self-consistent once the grid-captured voxel population is itself a
+    low-bias subsample of the true structure (see the exact z-integration
+    in ``get_fractional_mask_on_grid``, which is what makes that
+    assumption reasonable in the first place).
+
+    Parameters
+    ----------
+    struct_name : str
+    rtstruct_ds : pydicom Dataset
+
+    Returns
+    -------
+    float — ROI volume in cc.
+    """
+    name_to_roi, roi_to_contours = _build_roi_maps(rtstruct_ds)
+
+    key = struct_name.strip().lower()
+    if key not in name_to_roi:
+        raise ValueError(
+            f"Structure '{struct_name}' not found in RT Struct. "
+            f"Available: {[item.ROIName for item in rtstruct_ds.StructureSetROISequence]}"
+        )
+    roi_number = name_to_roi[key]
+    contours   = roi_to_contours.get(roi_number, [])
+
+    if not contours:
+        warnings.warn(f"No contour data for '{struct_name}'.")
+        return 0.0
+
+    slice_polys_by_z = defaultdict(list)
+    for pts in contours:
+        z_val = round(float(pts[0, 2]), 3)
+        slice_polys_by_z[z_val].append(pts[:, :2])
+
+    sorted_z = np.array(sorted(slice_polys_by_z.keys()))
+    areas = np.array([_slice_net_area_mm2(slice_polys_by_z[z]) for z in sorted_z])
+
+    if len(sorted_z) == 1:
+        # A single contour slice carries no native z-spacing to infer a
+        # slice thickness from; that has to come from the CT/RTSTRUCT
+        # geometry, which this function deliberately doesn't depend on.
+        warnings.warn(
+            f"'{struct_name}': only one contour slice — cannot infer a "
+            "native slice spacing from contour z-positions alone; "
+            "returning 0.0. Use get_fractional_mask_on_grid() with a "
+            "known dz instead for single-slice ROIs."
+        )
+        return 0.0
+
+    # trapezoidal integration between consecutive TRUE contour planes, at
+    # their TRUE (possibly irregular) native spacing — not any grid's dz.
+    dz_native = np.diff(sorted_z)
+    vol_mm3 = float(np.sum(dz_native * (areas[:-1] + areas[1:]) / 2.0))
+
+    # half-native-spacing end-cap extension at each pole, held at that end
+    # slice's own area — matches get_fractional_mask_on_grid's convention
+    pad_lo = dz_native[0] / 2.0
+    pad_hi = dz_native[-1] / 2.0
+    vol_mm3 += pad_lo * areas[0] + pad_hi * areas[-1]
+
+    return vol_mm3 / 1000.0
+
 def rasterize_slice_coverage(slice_polys, x0, y0, dx, dy, ny, nx, N):
     """
     Rasterise ALL polygon loops belonging to ONE true contour z-position
@@ -1304,6 +1423,114 @@ def _sdf_to_coverage(sdf: np.ndarray, dx: float, dy: float) -> np.ndarray:
 
 
 
+def _sdf_at_z(z: float, sorted_z: np.ndarray, sdf_by_z: list) -> np.ndarray:
+    """
+    Evaluate the piecewise-linear-in-z SDF field at an arbitrary depth z
+    (mm), by linearly interpolating between the two bracketing true
+    contour planes — the same rule ``get_fractional_mask_on_grid`` uses
+    per z-subsample, factored out so it can be called at exact segment
+    breakpoints instead of a fixed sub-sampling grid (see
+    ``_slab_avg_sdf_exact``).
+
+    Beyond the first/last contour plane the field is held constant at
+    that end slice's SDF (matching the half-slice end-cap convention
+    documented in ``get_fractional_mask_on_grid``) — trivially a
+    zero-slope linear segment, so it fits the same piecewise-linear model.
+
+    Parameters
+    ----------
+    z         : float — depth to evaluate, mm.
+    sorted_z  : np.ndarray — true contour z-positions, ascending, mm.
+    sdf_by_z  : list of np.ndarray, shape (ny, nx) — per-slice SDFs,
+        same order as ``sorted_z``.
+
+    Returns
+    -------
+    np.ndarray, shape (ny, nx)
+    """
+    if len(sorted_z) == 1:
+        return sdf_by_z[0]
+    z_min, z_max = sorted_z[0], sorted_z[-1]
+    if z <= z_min:
+        return sdf_by_z[0]
+    if z >= z_max:
+        return sdf_by_z[-1]
+    j = int(np.searchsorted(sorted_z, z, side="right") - 1)
+    j = int(np.clip(j, 0, len(sorted_z) - 2))
+    z0_, z1_ = sorted_z[j], sorted_z[j + 1]
+    t = 0.0 if z1_ == z0_ else (z - z0_) / (z1_ - z0_)
+    return (1.0 - t) * sdf_by_z[j] + t * sdf_by_z[j + 1]
+
+
+def _slab_avg_sdf_exact(z_lo: float, z_hi: float, sorted_z: np.ndarray,
+                         sdf_by_z: list, z_extent_lo: float, z_extent_hi: float,
+                         ny: int, nx: int):
+    """
+    Exact (zero quadrature error) average of the piecewise-linear-in-z
+    SDF field over an output voxel's z-slab ``[z_lo, z_hi]``, replacing
+    finite-``Nz`` sub-sampling.
+
+    TECHNICAL JUSTIFICATION: by construction the SDF field is piecewise
+    LINEAR in z — linear between each pair of adjacent true contour
+    planes, constant beyond the first/last (see ``_sdf_at_z``). The exact
+    integral average of ANY linear segment over an interval is available
+    in closed form from just its two endpoint values (trapezoid rule,
+    exact for linear functions — no discretisation error regardless of
+    how coarse the output grid's dz is relative to the native contour
+    spacing, and regardless of how many true contour planes fall inside
+    one output voxel's z-extent). This replaces sampling ``Nz`` points on
+    a uniform sub-grid — which is only exact when the whole slab happens
+    to fall within a single linear segment, and otherwise carries
+    residual quadrature error from the slope discontinuity at each
+    interior contour plane — with a handful of *exact* evaluations at
+    the slab's clipped bounds plus every interior contour z.
+
+    The slab is also clipped to the structure's true (padded) z-extent
+    ``[z_extent_lo, z_extent_hi]``: outside that extent there is no
+    structure at all (coverage is exactly 0, not merely "unsampled"), so
+    a voxel whose z-range only partially overlaps the structure — e.g.
+    the ROI's very first/last output slice — has its covered-region
+    coverage scaled down by the overlap fraction, rather than reporting
+    the covered portion's coverage as if it applied to the whole voxel.
+
+    Parameters
+    ----------
+    z_lo, z_hi : float — output voxel's full z-extent, mm.
+    sorted_z   : np.ndarray — true contour z-positions, ascending, mm.
+    sdf_by_z   : list of np.ndarray, shape (ny, nx) — per-slice SDFs.
+    z_extent_lo, z_extent_hi : float — structure's padded true z-extent, mm.
+    ny, nx     : int — in-plane grid shape.
+
+    Returns
+    -------
+    (avg_sdf_covered, overlap_frac) : (np.ndarray shape (ny, nx), float)
+        or None if ``[z_lo, z_hi]`` does not overlap the structure's
+        extent at all.
+    """
+    lo = max(z_lo, z_extent_lo)
+    hi = min(z_hi, z_extent_hi)
+    total_len = z_hi - z_lo
+
+    if hi <= lo or total_len <= 0:
+        return None
+
+    interior = sorted_z[(sorted_z > lo) & (sorted_z < hi)]
+    breakpoints = np.concatenate(([lo], interior, [hi]))
+
+    acc = np.zeros((ny, nx), dtype=np.float32)
+    for i in range(len(breakpoints) - 1):
+        a, b = float(breakpoints[i]), float(breakpoints[i + 1])
+        seg_len = b - a
+        if seg_len <= 0:
+            continue
+        sdf_a = _sdf_at_z(a, sorted_z, sdf_by_z)
+        sdf_b = _sdf_at_z(b, sorted_z, sdf_by_z)
+        acc += seg_len * 0.5 * (sdf_a + sdf_b)   # exact trapezoid: average of a linear segment
+
+    covered_len = hi - lo
+    avg_sdf_covered = acc / covered_len
+    overlap_frac = covered_len / total_len
+    return avg_sdf_covered, overlap_frac
 
 def _adaptive_supersample(contours, dx, dy, base_N, max_N=12, target_subsamples=16):
     """
@@ -1346,6 +1573,7 @@ def _adaptive_supersample(contours, dx, dy, base_N, max_N=12, target_subsamples=
     return int(np.clip(n_req, base_N, max_N))
 
 
+
 def get_fractional_mask_on_grid(struct_name: str,
                                 rtstruct_ds,
                                 origin:      list,
@@ -1365,14 +1593,35 @@ def get_fractional_mask_on_grid(struct_name: str,
     Through-slice (z) coverage is estimated by treating the true contour
     z-positions as control planes and interpolating the STRUCTURE'S
     BOUNDARY GEOMETRY — not its raw in-plane coverage/opacity — between
-    the two bracketing contour slices at each of ``supersample_z``
-    sub-depths within an output voxel's z-extent, then averaging. This is
-    done via shape-based interpolation: each contour slice's fractional
-    coverage raster is first converted to a 2-D signed distance field
-    (SDF, see ``_coverage_to_sdf``), the SDFs of the two bracketing
-    slices are linearly interpolated/averaged in distance space, and the
-    resulting SDF is converted back to a fractional coverage raster only
-    once, at the end (``_sdf_to_coverage``).
+    the bracketing contour slices across each output voxel's z-extent.
+    This is done via shape-based interpolation: each contour slice's
+    fractional coverage raster is first converted to a 2-D signed
+    distance field (SDF, see ``_coverage_to_sdf``); the per-voxel z-slab
+    is then integrated EXACTLY in SDF space (``_slab_avg_sdf_exact`` —
+    see that function's docstring, and NOTE below), not by sub-sampling;
+    and the resulting averaged SDF is converted back to a fractional
+    coverage raster only once, at the end (``_sdf_to_coverage``).
+
+    NOTE on the z-integration being exact rather than sub-sampled: the
+    SDF field is piecewise LINEAR in z by construction (linear between
+    each pair of adjacent true contour planes, constant beyond the
+    first/last). The integral average of a piecewise-linear function
+    over any interval is available in closed form from its endpoint
+    values at each linear segment (trapezoid rule, exact for linear
+    functions) — so no ``Nz`` sub-sampling parameter is needed, and there
+    is zero z-quadrature error regardless of how coarse the output
+    grid's dz is relative to the native contour spacing, or how many true
+    contour planes fall inside one output voxel's z-slab. (A generic
+    fixed-``Nz`` sub-sampling grid — the previous approach — is only
+    exact when a slab happens to fall entirely within one linear segment;
+    it carries residual error whenever a slab straddles an interior
+    contour plane, which is exactly the case where the output grid is
+    coarser than the contour spacing.) The exact integration also
+    correctly handles voxels whose z-extent only PARTIALLY overlaps the
+    structure's true (padded) extent — e.g. the ROI's first/last output
+    slice — by scaling the covered region's coverage down by the actual
+    overlap fraction, rather than reporting the covered portion's
+    coverage as if it applied to the voxel's full z-extent.
 
     TECHNICAL JUSTIFICATION for the z-interpolation (this is the main
     change from the previous version): contours were previously snapped
@@ -1419,10 +1668,11 @@ def get_fractional_mask_on_grid(struct_name: str,
     z_positions     : 1-D array length nz
     supersample     : baseline in-plane N (default 4). Scaled up
                       per-structure by ``_adaptive_supersample``.
-    supersample_z   : number of z sub-samples per output voxel slab.
-                      Defaults to ``supersample`` if not given, so a
-                      voxel gets comparable resolution in-plane and
-                      through-plane.
+    supersample_z   : DEPRECATED / ignored. Z-integration is now exact
+                      (see docstring NOTE above) and needs no sub-sampling
+                      count. Kept only so existing call sites that pass
+                      this argument don't break; a warning is issued if
+                      it's explicitly set to a non-None value.
     max_supersample : hard cap for the adaptive in-plane N.
 
     Returns
@@ -1450,7 +1700,13 @@ def get_fractional_mask_on_grid(struct_name: str,
         warnings.warn(f"No contour data for '{struct_name}'.")
         return frac_mask
 
-    Nz = supersample_z if supersample_z is not None else supersample
+    if supersample_z is not None:
+        warnings.warn(
+            "'supersample_z' is deprecated and ignored: z-integration is "
+            "now exact (closed-form, piecewise-linear-in-z SDF averaging) "
+            "and no longer needs a sub-sampling count.",
+            DeprecationWarning,
+        )
     N  = _adaptive_supersample(contours, dx, dy, base_N=supersample, max_N=max_supersample)
 
     # ---- group contours by their TRUE z (mm), NOT by nearest grid index ----
@@ -1509,37 +1765,18 @@ def get_fractional_mask_on_grid(struct_name: str,
         if z_hi < z_extent_lo or z_lo > z_extent_hi:
             continue
 
-        z_samples = z_lo + (np.arange(Nz) + 0.5) * (dz / Nz)
+        # Exact (closed-form) z-integration of the piecewise-linear-in-z
+        # SDF field over this voxel's slab — see ``_slab_avg_sdf_exact``
+        # and the docstring NOTE above for why this replaces sub-sampling.
+        # Also handles voxels whose z-extent only partially overlaps the
+        # structure's true (padded) extent, via ``overlap_frac``.
+        result = _slab_avg_sdf_exact(z_lo, z_hi, sorted_z, sdf_by_z,
+                                      z_extent_lo, z_extent_hi, ny, nx)
+        if result is None:
+            continue  # no overlap with the structure's extent after all
+        avg_sdf_covered, overlap_frac = result
 
-        # Accumulate in SDF (distance) space, not coverage (opacity) space —
-        # shape-based interpolation. slab_sdf_sum / n_valid is the average
-        # signed distance field over the sub-depths sampled within this
-        # output voxel's z-extent; it is converted to a fractional coverage
-        # raster only once, after averaging, via ``_sdf_to_coverage``.
-        slab_sdf_sum = np.zeros((ny, nx), dtype=np.float32)
-        n_valid = 0
-        for z_s in z_samples:
-            if z_s < z_extent_lo or z_s > z_extent_hi:
-                continue  # outside the true (padded) structure extent: 0 contribution
-            n_valid += 1
-            if len(sorted_z) == 1:
-                slab_sdf_sum += sdf_by_z[0]
-                continue
-            if z_s <= z_min:
-                slab_sdf_sum += sdf_by_z[0]           # bottom end-cap band
-            elif z_s >= z_max:
-                slab_sdf_sum += sdf_by_z[-1]           # top end-cap band
-            else:
-                j = int(np.searchsorted(sorted_z, z_s, side="right") - 1)
-                j = int(np.clip(j, 0, len(sorted_z) - 2))
-                z0_, z1_ = sorted_z[j], sorted_z[j + 1]
-                t = 0.0 if z1_ == z0_ else (z_s - z0_) / (z1_ - z0_)
-                slab_sdf_sum += (1.0 - t) * sdf_by_z[j] + t * sdf_by_z[j + 1]
-
-        if n_valid == 0:
-            continue  # every sub-sample fell outside the padded extent
-
-        avg_sdf = slab_sdf_sum / n_valid
-        frac_mask[z_idx] = _sdf_to_coverage(avg_sdf, dx, dy)
+        coverage_covered = _sdf_to_coverage(avg_sdf_covered, dx, dy)
+        frac_mask[z_idx] = coverage_covered * overlap_frac
 
     return frac_mask
