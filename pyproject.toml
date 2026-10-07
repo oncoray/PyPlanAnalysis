@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [
     { name = "Giovanni Parrella" }
 ]
-keywords = ["proton therapy", "radiotherapy", "DVH", "NTCP", "medical physics", "RayStation"]
+keywords = ["proton therapy", "radiotherapy", "DVH", "NTCP", "medical physics"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Healthcare Industry",

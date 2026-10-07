@@ -13,7 +13,7 @@ from Tests import Paths
 # ------------------------------------------------------------------
 # 1. Point to your DICOM files
 # ------------------------------------------------------------------
-Test_folder_name = "DD-0ZKEKUPU"
+Test_folder_name = "DD-0ZKEKUPU_og"
 
 #set manually your output folder
 data_dir = Paths.TEST_DATA / Test_folder_name / Paths.TEST_DATA_INPUT
@@ -31,6 +31,7 @@ plan = PatientPlan.from_folder( folder = data_dir,
 #     CT_folder_path    = data_dir / "CT",
 #     n_fractions = 30
 # )
+
 
 #%%
 # ------------------------------------------------------------------
@@ -53,6 +54,15 @@ metric_cfg = MetricConfig(
 )
 
 radiobio_cfg = RadiobiologyConfig(
+    structure_priority= {
+        "brainstem" : 1,
+        "cord"      : 1,
+        "chiasm"    : 1,
+        "lens"      : 1,
+        "ctv"       : 10,
+        "gtv"       : 10,
+        "ptv"       : 15,
+    },
     alpha_beta_map = {
          "Brain__minus__CTVunion_RBE_V01"       : 0.96,
          "Brainstem"       : 0.96,
@@ -94,6 +104,19 @@ results = plan.analyse(
     max_supersample = 24
 )
 
+mac_dose = plan.compute_vRBE("mcnamara",
+                  structures   = ['BrainStem', 'Chiasm', 'OpticNerve_L', 'OpticNerve_R'],# or None for all
+                    rbe_cfg      = rbe_cfg,
+                    metric_cfg   = metric_cfg,
+                    radiobio_cfg = radiobio_cfg,
+                    resample_on_CT  = 0,
+                    resample_on_custom_grid    = 0,
+                    use_fractional = 1, 
+                    supersample  = 24,
+                    supersample_z  = None,
+                    max_supersample = 24)
+
+mac_dose.max()
 # ------------------------------------------------------------------
 # 5. Save outputs
 # ------------------------------------------------------------------

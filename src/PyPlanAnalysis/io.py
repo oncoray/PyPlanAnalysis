@@ -1780,3 +1780,8 @@ def get_fractional_mask_on_grid(struct_name: str,
         frac_mask[z_idx] = coverage_covered * overlap_frac
 
     return frac_mask
+
+def save_nifti(arr, ref_img, path):
+    img = sitk.GetImageFromArray(arr.astype("float32"))
+    img.CopyInformation(ref_img)
+    sitk.WriteImage(img, str(path))

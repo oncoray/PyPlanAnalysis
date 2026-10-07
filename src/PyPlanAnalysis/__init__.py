@@ -14,7 +14,7 @@ from .NTCP    import NTCPConfig
 __all__ = [
     "PatientPlan",
     "AnalysisResults",
-    "RBEConfig",
+    "RBEConfig",   
     "MetricConfig",
     "RadiobiologyConfig",
     "NTCPConfig"

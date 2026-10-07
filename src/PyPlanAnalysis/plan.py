@@ -152,10 +152,10 @@ class PatientPlan:
         if self.plan_file is not None:
             self._plan_ds  = pydicom.dcmread(str(self.plan_file), force=True)
             n_fractions_from_rtplan = self._plan_ds.FractionGroupSequence[0].NumberOfFractionsPlanned
-            print("Selected plan: {self._plan_ds.RTPlanName}")
+            print(f"Selected plan: {self._plan_ds.RTPlanName}")
             try: 
                 radtype= self._plan_ds.RadiationType
-                print("Radiation Type: {radtype}")
+                print(f"Radiation Type: {radtype}")
             except:
                 print("Radiation Type: unknown")
                 
@@ -231,6 +231,227 @@ class PatientPlan:
    
 
     # ----------------------------------------------------------
+    
+    
+    
+    def _sanity_check_and_resample_dose(self,
+                                        structures              : list = None,
+                                        metric_cfg              : MetricConfig   = None,
+                                        resample_on_CT          : bool = False,
+                                        resample_on_custom_grid : bool = False):
+        self.load()
+        # ---------------------------------------------------------
+        # Validate loaded data
+        # ---------------------------------------------------------
+        
+        
+        if self._dose_ds is not None:
+            assert tuple(self._dose_arr.shape) == (
+                int(self._dose_ds.NumberOfFrames),
+                int(self._dose_ds.Rows),
+                int(self._dose_ds.Columns),
+            )
+    
+        if self._dose_arr is None and self._let_arr is None:
+            warnings.warn("Neither dose nor LET could be loaded — nothing to analyse.")
+            return None
+        if self._rtstruct_ds is None:
+            warnings.warn("No RT Struct loaded — cannot extract any structures.")
+            return None   
+        
+        # ---------------------------------------------------------
+        # Local copies: never modify self's pristine data
+        # ---------------------------------------------------------
+
+        # Using local variables makes analyse() idempotent with respect to
+        # self: repeated calls, in any order, with any combination of flags,
+        # always start from the same pristine self._dose_arr/self._let_arr.
+        
+        dose_arr = self._dose_arr.copy() if self._dose_arr is not None else None
+        dose_ds  = copy.deepcopy(self._dose_ds) if self._dose_ds is not None else None
+        
+        let_arr  = self._let_arr.copy() if self._let_arr is not None else None
+        let_ds   = copy.deepcopy(self._let_ds) if self._let_ds is not None else None
+
+        # --- resample dose/LET only if the array exists ---
+        sitk_dose = _np_to_sitk(dose_arr, dose_ds) if dose_arr is not None else None
+        sitk_let  = _np_to_sitk(let_arr,  let_ds)  if let_arr  is not None else None
+
+        grid_origin = grid_spacing = grid_shape = grid_z_positions = None
+        
+        if  resample_on_CT and not self._CT_loaded :
+            raise ValueError("No CT has been loaded for resampling")
+            
+            
+        if resample_on_custom_grid and resample_on_CT:
+            raise ValueError("Two resampling criteria have been selected. Please select only one.")
+            
+        
+        if self._CT_loaded and resample_on_CT:
+            
+            print("  Resampling dose and LET onto CT grid...")
+
+            if sitk_dose is not None:
+                res_dose_sitk = resample_dose_on_ct(sitk_dose,self._CT_sitk)  
+                dose_arr = sitk.GetArrayFromImage(res_dose_sitk)     #sitk_dose	
+                
+            if sitk_let is not None:    
+                res_let_sitk = resample_dose_on_ct(sitk_let, self._CT_sitk)
+                let_arr = sitk.GetArrayFromImage(res_let_sitk)       #sitk_let	
+            
+            #Set grid for resampling and creating struct masks
+            grid_origin = self._CT_geom['origin']
+            grid_spacing = self._CT_geom['spacing'] #x,y,z
+            grid_shape = self._CT_geom['shape']
+            grid_z_positions = self._CT_geom['z_positions']
+            
+        elif resample_on_custom_grid:
+                grid_new = metric_cfg.New_grid
+                
+                print(f"  Resampling dose and LET onto custom  {grid_new} grid...")
+                
+                if sitk_dose is not None:
+                    res_dose_sitk, dose_arr, dose_geom, _ = resample_dose_to_new_grid(sitk_dose,
+                                                                                            dose_ds,
+                                                                                            grid_new)
+                if sitk_let is not None:  
+                    res_let_sitk, let_arr, _, let_ds = resample_dose_to_new_grid (sitk_let,
+                                                                             let_ds,
+                                                                             grid_new)
+                
+                #Set grid for resampling and creating struct masks
+                grid_origin = dose_geom['origin']
+                grid_spacing = dose_geom['spacing'] #x,y,z
+                grid_shape = dose_geom['shape'] #z,y,x
+                grid_z_positions = dose_geom['z_positions']
+                
+        else:
+            
+            print("No Resampling for dose and LET")
+            
+            # no CT, no resample requested — use whichever grid (dose preferred, else LET) is available
+            ref_ds = dose_ds if dose_ds is not None else let_ds
+            if ref_ds is not None:
+                grid_origin, grid_spacing = get_grid_geometry(ref_ds)
+                grid_shape       = (dose_arr.shape if dose_arr is not None
+                                    else let_arr.shape)
+                z_offsets        = [float(v) for v in ref_ds.GridFrameOffsetVector]
+                grid_z_positions = np.array([grid_origin[2] + o for o in z_offsets])
+        
+        if grid_origin is None:
+            warnings.warn("Could not determine a voxel grid — aborting analysis.")
+            return None
+        
+        return dose_arr, let_arr, grid_origin, grid_spacing, grid_shape, grid_z_positions
+    
+    
+    def get_roi_mask(self,struct_name, rtstruct_ds, grid_origin, grid_spacing,
+                 grid_shape, grid_z_positions, use_fractional=False,
+                 supersample=4, supersample_z=None, max_supersample=12):
+        
+        if use_fractional:
+             frac = get_fractional_mask_on_grid(
+                                                struct_name, rtstruct_ds,
+                                                grid_origin, grid_spacing,
+                                                grid_shape, grid_z_positions,
+                                                supersample=supersample,
+                                                supersample_z=supersample_z,
+                                                max_supersample=max_supersample
+                                            )
+             mask = frac > 0
+             return frac[mask], mask
+            
+        return None, get_structure_mask_on_grid(
+            struct_name, rtstruct_ds,
+            grid_origin, grid_spacing,
+            grid_shape, grid_z_positions
+        )
+    
+    
+    def _get_priority(self, struct_name: str, priority_map: dict) -> int:
+        """Substring match on structure name, same as alpha_beta lookup."""
+        name = struct_name.lower()
+        for key, val in priority_map.items():
+            if key in name:
+                return val 
+        return 999 # lowest priority when not listed
+        
+    def build_alpha_beta_map(self, rtstruct_ds, structures, grid_origin, grid_spacing,
+                         grid_shape, grid_z_positions, radiobio_cfg,
+                         use_fractional,supersample, supersample_z, max_supersample, default_ab=2.0):
+        
+        ab_map = np.full(grid_shape, default_ab, dtype=np.float32)
+        priority_map = np.full(grid_shape, 999, dtype=np.int32)
+    
+        for struct_name in structures:
+            try:
+                _,mask = self.get_roi_mask(struct_name, rtstruct_ds, grid_origin, grid_spacing,
+                             grid_shape, grid_z_positions, use_fractional,
+                             supersample, supersample_z, max_supersample
+                )
+            except Exception:
+                continue
+    
+            if not mask.any():
+                continue
+    
+            priority = self._get_priority(
+                struct_name, radiobio_cfg.structure_priority
+            )
+            update = mask & (priority < priority_map)
+    
+            ab_map[update] = radiobio_cfg.get_alpha_beta(struct_name)
+            priority_map[update] = priority
+
+        return ab_map, priority_map
+
+    def compute_vRBE(self,
+                    model : str,
+                    structures              : list = None,
+                    rbe_cfg       : RBEConfig            = None,
+                    metric_cfg    : MetricConfig         = None,
+                    radiobio_cfg  : RadiobiologyConfig   = None,
+                    resample_on_CT          : bool = False,
+                    resample_on_custom_grid : bool = False,
+                    use_fractional: bool                 = False,
+                    supersample   : int                  = 4,
+                    supersample_z : int                  = None,
+                    max_supersample: int                 = 12):
+        
+        rbe_cfg      = rbe_cfg      or RBEConfig()
+        metric_cfg   = metric_cfg   or MetricConfig()
+        radiobio_cfg = radiobio_cfg or RadiobiologyConfig()
+
+        if structures is None:
+            structures = self.structure_names
+        else:
+            available = self.structure_names
+            missing   = [s for s in structures if s not in available]
+            if missing:
+                warnings.warn(f"Structures not in RT Struct: {missing}")
+            structures = [s for s in structures if s in available]
+
+        mode = f"fractional (supersample={supersample})" if use_fractional else "binary"
+        print(f"Analysing {len(structures)} structures [{mode} mask]...")
+        
+        #--------------------
+        # Perform resampling and sanity checks
+        #-----------------------------
+        dose_arr, let_arr, grid_origin, grid_spacing, grid_shape, grid_z_positions = self._sanity_check_and_resample_dose( structures,
+                                                                                                                            metric_cfg,
+                                                                                                                            resample_on_CT,
+                                                                                                                            resample_on_custom_grid)
+        
+            
+        ab_map,_ = self.build_alpha_beta_map( self._rtstruct_ds, structures, grid_origin, grid_spacing,
+                             grid_shape, grid_z_positions, radiobio_cfg,
+                             use_fractional,supersample, supersample_z, max_supersample, default_ab=2.0)
+        
+        vRBE = compute_rbe_dose(dose_arr,let_arr, self.n_fractions, ab_map, model)
+        
+        return vRBE
+    
+    
     def analyse(self,
                 structures    : list = None,
                 rbe_cfg       : RBEConfig            = None,
@@ -272,21 +493,6 @@ class PatientPlan:
         -------
         AnalysisResults
         """
-        self.load()
-        assert self._dose_arr is not None
-        if self._dose_ds is not None:
-            assert tuple(self._dose_arr.shape) == (
-                int(self._dose_ds.NumberOfFrames),
-                int(self._dose_ds.Rows),
-                int(self._dose_ds.Columns),
-            )
-    
-        if self._dose_arr is None and self._let_arr is None:
-            warnings.warn("Neither dose nor LET could be loaded — nothing to analyse.")
-            return None
-        if self._rtstruct_ds is None:
-            warnings.warn("No RT Struct loaded — cannot extract any structures.")
-            return None   
         rbe_cfg      = rbe_cfg      or RBEConfig()
         metric_cfg   = metric_cfg   or MetricConfig()
         radiobio_cfg = radiobio_cfg or RadiobiologyConfig()
@@ -301,87 +507,15 @@ class PatientPlan:
             structures = [s for s in structures if s in available]
 
         mode = f"fractional (supersample={supersample})" if use_fractional else "binary"
-        print(f"  Analysing {len(structures)} structures [{mode} mask]...")
-
-        # Work on LOCAL copies of the loaded arrays/geometry for this call.
-        # 
-        # Using local variables makes analyse() idempotent with respect to
-        # self: repeated calls, in any order, with any combination of flags,
-        # always start from the same pristine self._dose_arr/self._let_arr.
-        dose_arr = self._dose_arr
-        dose_ds  = copy.deepcopy(self._dose_ds)
+        print(f"Analysing {len(structures)} structures [{mode} mask]...")
         
-        let_arr  = self._let_arr
-        let_ds   = copy.deepcopy(self._let_ds)
-
-        # --- resample dose/LET only if the array exists ---
-        sitk_dose = _np_to_sitk(dose_arr, dose_ds) if dose_arr is not None else None
-        sitk_let  = _np_to_sitk(let_arr,  let_ds)  if let_arr  is not None else None
-
-        grid_origin = grid_spacing = grid_shape = grid_z_positions = None
-        
-        if (not self._CT_loaded) & (resample_on_CT):
-            raise ValueError("No CT has been loaded for resampling")
-            
-            
-        if (resample_on_custom_grid) & (resample_on_CT):
-            raise ValueError("Two resampling criteria have been selected. Please select only one.")
-            
-        
-        if (self._CT_loaded) & (resample_on_CT):
-            
-            print("  Resampling dose and LET onto CT grid...")
-           
-            if sitk_dose is not None:
-                res_dose = resample_dose_on_ct(sitk_dose,self._CT_sitk)  
-                dose_arr = sitk.GetArrayFromImage(res_dose)     #sitk_dose	
-                
-            if sitk_let is not None:    
-                res_let = resample_dose_on_ct(sitk_let, self._CT_sitk)
-                let_arr = sitk.GetArrayFromImage(res_let)       #sitk_let	
-            
-            #Set grid for resampling and creating struct masks
-            grid_origin = self._CT_geom['origin']
-            grid_spacing = self._CT_geom['spacing'] #x,y,z
-            grid_shape = self._CT_geom['shape']
-            grid_z_positions = self._CT_geom['z_positions']
-            
-        elif resample_on_custom_grid:
-                grid_new = metric_cfg.New_grid
-                
-                print(f"  Resampling dose and LET onto custom  {grid_new} grid...")
-                
-                if sitk_dose is not None:
-                    res_dose, dose_arr, dose_geom, _ = resample_dose_to_new_grid(sitk_dose,
-                                                                                            dose_ds,
-                                                                                            grid_new)
-                if sitk_let is not None:  
-                    res_let, let_arr, _, let_ds = resample_dose_to_new_grid (sitk_let,
-                                                                             let_ds,
-                                                                             grid_new)
-                
-                #Set grid for resampling and creating struct masks
-                grid_origin = dose_geom['origin']
-                grid_spacing = dose_geom['spacing'] #x,y,z
-                grid_shape = dose_geom['shape'] #z,y,x
-                grid_z_positions = dose_geom['z_positions']
-                
-        else:
-            
-            print("No Resampling for dose and LET")
-            
-            # no CT, no resample requested — use whichever grid (dose preferred, else LET) is available
-            ref_ds = dose_ds if dose_ds is not None else let_ds
-            if ref_ds is not None:
-                grid_origin, grid_spacing = get_grid_geometry(ref_ds)
-                grid_shape       = (dose_arr.shape if dose_arr is not None
-                                    else let_arr.shape)
-                z_offsets        = [float(v) for v in ref_ds.GridFrameOffsetVector]
-                grid_z_positions = np.array([grid_origin[2] + o for o in z_offsets])
-        
-        if grid_origin is None:
-            warnings.warn("Could not determine a voxel grid — aborting analysis.")
-            return None
+        #--------------------
+        # Perform resampling and sanity checks
+        #-----------------------------
+        dose_arr, let_arr, grid_origin, grid_spacing, grid_shape, grid_z_positions = self._sanity_check_and_resample_dose( structures,
+                                                                                                                            metric_cfg,
+                                                                                                                            resample_on_CT,
+                                                                                                                            resample_on_custom_grid)
         
             
         all_rows    = []
@@ -400,35 +534,16 @@ class PatientPlan:
             print(f"    → {struct_name}")
 
             try:
-                if use_fractional and (grid_origin):
-                    
-                    frac  = get_fractional_mask_on_grid(struct_name,
-                                                    self._rtstruct_ds,
-                                                    grid_origin,
-                                                    grid_spacing,
-                                                    grid_shape,
-                                                    grid_z_positions,
-                                                    supersample = supersample,
-                                                    supersample_z = supersample_z,
-                                                    max_supersample = max_supersample)
-                    mask    = frac > 0
-                    weights = frac[mask]
-                    
-                elif not use_fractional and (grid_origin):
-                        
-                    mask = get_structure_mask_on_grid(struct_name,
-                                                   self._rtstruct_ds,
-                                                  grid_origin,
-                                                  grid_spacing,
-                                                  grid_shape,
-                                                  grid_z_positions)
-                    
-                    weights = None   # binary → unweighted
-                else:
-                    mask = np.zeros(1)
-                    weights = None
-
-                    
+                weights,mask = self.get_roi_mask(struct_name,
+                                self._rtstruct_ds,
+                                grid_origin,
+                                grid_spacing,
+                                grid_shape,
+                                grid_z_positions,
+                                supersample = supersample,
+                                supersample_z = supersample_z,
+                                max_supersample = max_supersample)
+                
             except Exception as e:
                 warnings.warn(f"Skipping '{struct_name}': {e}")
                 continue
@@ -439,13 +554,9 @@ class PatientPlan:
             ab     = radiobio_cfg.get_alpha_beta(struct_name)
             geud_a = radiobio_cfg.get_geud_a(struct_name)
             
-            dose_vox = dose_arr[mask > 0] if dose_arr is not None else None
-            let_vox  = let_arr[mask > 0]  if let_arr  is not None else None 
+            dose_vox = dose_arr[mask] if dose_arr is not None else None
+            let_vox  = let_arr[mask]  if let_arr  is not None else None 
             
-            if dose_arr is not None:
-                dose_vox = dose_arr[mask>0]
-            if let_arr is not None: 
-                let_vox  = let_arr[mask>0]
             
             # effective volume: sum of fractional weights × voxel volume
             if weights is not None:

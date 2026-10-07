@@ -30,7 +30,7 @@ class RBEConfig:
     ----------
     models : list of str
         Any subset of {"mcnamara", "wedenberg", "carabe"}.
-        Default: all three.
+        Default: all 4.
     fixed_rbe : float
         Constant RBE value used for the RBE×fixed calculation.
         Default: 1.1
@@ -185,13 +185,17 @@ def compute_rbe_dose(dose_phys: np.ndarray,
     ----------
     dose_phys  : physical dose array [Gy]
     let_d      : LETd array [keV/µm], same shape as dose_phys
-    alpha_beta : α/β ratio [Gy] for this structure
-    model      : one of "mcnamara", "wedenberg", "carabe"
+    n_fractions: int (not needed for linear)
+    alpha_beta : α/β ratio [Gy] for this structure(not needed for linear)
+    model      : one of "linear","mcnamara", "wedenberg", "carabe"
 
     Returns
     -------
     rbe_dose : np.ndarray  [Gy(RBE)]
     """
+    if np.ndim(alpha_beta) > 0 and np.shape(alpha_beta) != np.shape(dose_phys):
+        raise ValueError("alpha_beta array must match dose shape")
+    
     if model not in VARIABLE_RBE_MODELS:
         raise ValueError(f"Unknown model '{model}'. "
                          f"Choose from {list(VARIABLE_RBE_MODELS)}")

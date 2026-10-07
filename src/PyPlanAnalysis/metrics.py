@@ -32,6 +32,16 @@ class RadiobiologyConfig:
     geud_a_default : float
         Fallback gEUD a.
     """
+    structure_priority: dict = field(default_factory=lambda: {
+        "brainstem" : 1,
+        "cord"      : 1,
+        "chiasm"    : 1,
+        "lens"      : 1,
+        "ctv"       : 10,
+        "gtv"       : 10,
+        "ptv"       : 15,
+    })
+    
     alpha_beta_map     : dict  = field(default_factory=lambda: {
         "CTV"       : 10.0,
         "GTV"       : 10.0,
@@ -40,6 +50,7 @@ class RadiobiologyConfig:
         "parotid"   : 3.0,
         "lens"      : 1.2,
     })
+    
     alpha_beta_default : float = 2.0
 
     geud_a_map         : dict  = field(default_factory=lambda: {
@@ -277,7 +288,7 @@ def compute_dvh_metrics(dose_voxels: np.ndarray,
 
     # gEUD — weighted power mean
     #
-    # TECHNICAL JUSTIFICATION for the change below: the previous version
+    # The previous version
     # dropped every voxel with dose_voxels == 0 entirely from the average
     # (`dose_voxels[dose_voxels > 0]`). That was necessary numerically —
     # 0 ** geud_a is undefined/infinite for the negative `a` used for
@@ -411,14 +422,7 @@ def compute_2d_histogram(dose_voxels: np.ndarray,
     Parameters
     ----------
     weights : optional 1-D array of fractional volumes [0,1] per voxel.
-        TECHNICAL JUSTIFICATION: every other metric in this module
-        (DVH, LVH, Dx%, Vx, gEUD, Lx%) is volume-weighted when a
-        fractional mask is supplied. Previously this function had no
-        `weights` parameter at all, so `np.histogram2d` counted every
-        voxel as a full unit volume regardless of its fractional
-        membership — DLVH plots for a fractional-mask run were silently
-        inconsistent with the DVH/LVH curves computed for the exact same
-        structure and voxels. Passing weights through makes DLVH use the
+        Passing weights through makes DLVH use the
         same partial-volume accounting as the rest of the pipeline.
 
     Returns
