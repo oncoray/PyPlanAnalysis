@@ -1581,7 +1581,6 @@ def get_fractional_mask_on_grid(struct_name: str,
                                 shape:       tuple,
                                 z_positions: np.ndarray,
                                 supersample: int = 4,
-                                supersample_z: int = None,
                                 max_supersample: int = 12) -> np.ndarray:
     """
     Compute a fractional voxel membership mask on an arbitrary grid.
@@ -1668,11 +1667,6 @@ def get_fractional_mask_on_grid(struct_name: str,
     z_positions     : 1-D array length nz
     supersample     : baseline in-plane N (default 4). Scaled up
                       per-structure by ``_adaptive_supersample``.
-    supersample_z   : DEPRECATED / ignored. Z-integration is now exact
-                      (see docstring NOTE above) and needs no sub-sampling
-                      count. Kept only so existing call sites that pass
-                      this argument don't break; a warning is issued if
-                      it's explicitly set to a non-None value.
     max_supersample : hard cap for the adaptive in-plane N.
 
     Returns
@@ -1700,13 +1694,7 @@ def get_fractional_mask_on_grid(struct_name: str,
         warnings.warn(f"No contour data for '{struct_name}'.")
         return frac_mask
 
-    if supersample_z is not None:
-        warnings.warn(
-            "'supersample_z' is deprecated and ignored: z-integration is "
-            "now exact (closed-form, piecewise-linear-in-z SDF averaging) "
-            "and no longer needs a sub-sampling count.",
-            DeprecationWarning,
-        )
+    
     N  = _adaptive_supersample(contours, dx, dy, base_N=supersample, max_N=max_supersample)
 
     # ---- group contours by their TRUE z (mm), NOT by nearest grid index ----

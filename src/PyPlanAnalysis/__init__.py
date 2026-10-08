@@ -6,7 +6,7 @@ variable-RBE modelling and NTCP scoring. See the project README for
 full usage details.
 """
  
-from .plan    import PatientPlan, AnalysisResults
+from .plan    import PatientPlan, AnalysisResults, vRBEResults
 from .rbe     import RBEConfig
 from .metrics import MetricConfig, RadiobiologyConfig
 from .NTCP    import NTCPConfig
@@ -14,6 +14,7 @@ from .NTCP    import NTCPConfig
 __all__ = [
     "PatientPlan",
     "AnalysisResults",
+    "vRBEResults",    
     "RBEConfig",   
     "MetricConfig",
     "RadiobiologyConfig",

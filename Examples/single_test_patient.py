@@ -67,6 +67,7 @@ radiobio_cfg = RadiobiologyConfig(
          "Brain__minus__CTVunion_RBE_V01"       : 0.96,
          "Brainstem"       : 0.96,
          "Hippocampus"     : 2.0,
+         "OpticNerve_L"       :  4
     },
     alpha_beta_default = 2.0,
     geud_a_map = {
@@ -91,32 +92,32 @@ NTCP_config = NTCPConfig(
 # ------------------------------------------------------------------
 # 4. Run the analysis
 # ------------------------------------------------------------------
+plan.structure_names
+
 results = plan.analyse(
-    structures   = ['BrainStem', 'Chiasm', 'OpticNerve_L', 'OpticNerve_R'],# or None for all
-    rbe_cfg      = rbe_cfg,
-    metric_cfg   = metric_cfg,
-    radiobio_cfg = radiobio_cfg,
-    resample_on_CT  = 0,
-    resample_on_custom_grid    = 0,
-    use_fractional = 1, 
-    supersample  = 24,
-    supersample_z  = None,
-    max_supersample = 24
-)
+                        structures   = ['BrainStem', 'Chiasm', 'OpticNerve_L', 'OpticNerve_R'],# or None for all
+                        rbe_cfg      = rbe_cfg,
+                        metric_cfg   = metric_cfg,
+                        radiobio_cfg = radiobio_cfg,
+                        resample_on_CT  = 0,
+                        resample_on_custom_grid    = 0,
+                        use_fractional = 1, 
+                        supersample  = 24,
+                        max_supersample = 24
+                    )
 
-mac_dose = plan.compute_vRBE("mcnamara",
-                  structures   = ['BrainStem', 'Chiasm', 'OpticNerve_L', 'OpticNerve_R'],# or None for all
-                    rbe_cfg      = rbe_cfg,
-                    metric_cfg   = metric_cfg,
-                    radiobio_cfg = radiobio_cfg,
-                    resample_on_CT  = 0,
-                    resample_on_custom_grid    = 0,
-                    use_fractional = 1, 
-                    supersample  = 24,
-                    supersample_z  = None,
-                    max_supersample = 24)
+vRBE_results = plan.compute_vRBE("McNamara",
+                                    structures   = [],#['BrainStem', 'Chiasm', 'OpticNerve_L', 'OpticNerve_R'],# or None for all
+                                    metric_cfg   = metric_cfg,
+                                    radiobio_cfg = radiobio_cfg,
+                                    resample_on_CT  = 0,
+                                    resample_on_custom_grid    = 1,
+                                    use_fractional = 0, 
+                                    supersample  = 24,
+                                    max_supersample = 24)
 
-mac_dose.max()
+vRBE_results.to_nii(output_dir, name_vRBE = "mcn_dose.nii.gz")
+
 # ------------------------------------------------------------------
 # 5. Save outputs
 # ------------------------------------------------------------------

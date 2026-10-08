@@ -347,7 +347,7 @@ class PatientPlan:
     
     def get_roi_mask(self,struct_name, rtstruct_ds, grid_origin, grid_spacing,
                  grid_shape, grid_z_positions, use_fractional=False,
-                 supersample=4, supersample_z=None, max_supersample=12):
+                 supersample=4, max_supersample=12):
         
         if use_fractional:
              frac = get_fractional_mask_on_grid(
@@ -355,7 +355,6 @@ class PatientPlan:
                                                 grid_origin, grid_spacing,
                                                 grid_shape, grid_z_positions,
                                                 supersample=supersample,
-                                                supersample_z=supersample_z,
                                                 max_supersample=max_supersample
                                             )
              mask = frac > 0
@@ -378,17 +377,17 @@ class PatientPlan:
         
     def build_alpha_beta_map(self, rtstruct_ds, structures, grid_origin, grid_spacing,
                          grid_shape, grid_z_positions, radiobio_cfg,
-                         use_fractional,supersample, supersample_z, max_supersample, default_ab=2.0):
+                         use_fractional,supersample,  max_supersample):
         
-        ab_map = np.full(grid_shape, default_ab, dtype=np.float32)
-        priority_map = np.full(grid_shape, 999, dtype=np.int32)
+        ab_map = np.full(grid_shape, radiobio_cfg.alpha_beta_default, dtype=np.float32)
+        priority_map = np.full(grid_shape, 1000, dtype=np.int32)
     
         for struct_name in structures:
             try:
                 _,mask = self.get_roi_mask(struct_name, rtstruct_ds, grid_origin, grid_spacing,
                              grid_shape, grid_z_positions, use_fractional,
-                             supersample, supersample_z, max_supersample
-                )
+                             supersample, max_supersample
+                             )
             except Exception:
                 continue
     
@@ -408,17 +407,44 @@ class PatientPlan:
     def compute_vRBE(self,
                     model : str,
                     structures              : list = None,
-                    rbe_cfg       : RBEConfig            = None,
                     metric_cfg    : MetricConfig         = None,
                     radiobio_cfg  : RadiobiologyConfig   = None,
                     resample_on_CT          : bool = False,
                     resample_on_custom_grid : bool = False,
                     use_fractional: bool                 = False,
                     supersample   : int                  = 4,
-                    supersample_z : int                  = None,
                     max_supersample: int                 = 12):
-        
-        rbe_cfg      = rbe_cfg      or RBEConfig()
+        """
+        Compute a voxel-wise variable-RBE dose volume for the whole patient grid.
+        It Works independently of analyse() — no DVH metrics are computed, only the 3D RBE-weighted dose map and the α/β map used to produce it.
+        It works independetly of RBEConfig
+       
+        Parameters
+        ----------
+        model           : str — RBE model to apply: "linear", "mcnamara", "wedenberg", or "carabe"
+        structures      : list of structure name strings used to build the α/β map, or None (= all).
+                          Voxels not inside any listed structure receive the default α/β.
+        metric_cfg      : MetricConfig — only New_grid is used, when resample_on_custom_grid=True
+        radiobio_cfg    : RadiobiologyConfig — supplies per-structure α/β values and overlap
+                          priority for building the voxel-wise α/β map
+        resample_on_CT  : if True, resample dose and LET onto the CT grid before computing RBE.
+                          Requires CT to have been loaded (ct_dir passed to PatientPlan)
+        resample_on_custom_grid : if True, resample dose and LET onto the isotropic grid defined
+                          by metric_cfg.New_grid [mm]. Mutually exclusive with resample_on_CT.
+        use_fractional  : if True, use fractional voxel membership for the α/β map boundary voxels.
+                          More accurate for small structures. Default: False.
+        supersample     : baseline in-plane supersampling factor (N×N sub-points per voxel).
+                          Only used when use_fractional=True. Scaled up automatically for small
+                          structures — see io._adaptive_supersample. Default: 4.
+        max_supersample : hard cap on the adaptive in-plane supersampling factor, to bound
+                          compute cost for very small ROIs. Default: 12.
+       
+        Returns
+        -------
+        vRBEResults
+        A container holding the 3D vRBE dose array, the α/β map, grid geometry,
+        and a to_nii() method to save both volumes as NIfTI files.
+        """
         metric_cfg   = metric_cfg   or MetricConfig()
         radiobio_cfg = radiobio_cfg or RadiobiologyConfig()
 
@@ -445,11 +471,17 @@ class PatientPlan:
             
         ab_map,_ = self.build_alpha_beta_map( self._rtstruct_ds, structures, grid_origin, grid_spacing,
                              grid_shape, grid_z_positions, radiobio_cfg,
-                             use_fractional,supersample, supersample_z, max_supersample, default_ab=2.0)
+                             use_fractional,supersample,max_supersample)
         
         vRBE = compute_rbe_dose(dose_arr,let_arr, self.n_fractions, ab_map, model)
         
-        return vRBE
+        return vRBEResults(patient_id  = self.patient_id,
+                           model = model.lower(), 
+                           dose_arr = dose_arr, 
+                           let_arr = let_arr,
+                           vRBE = vRBE,
+                           ab_map = ab_map, 
+                           geom = {"origin":grid_origin,"spacing":grid_spacing} )
     
     
     def analyse(self,
@@ -461,7 +493,6 @@ class PatientPlan:
                 resample_on_custom_grid      : bool                 = False,
                 use_fractional: bool                 = False,
                 supersample   : int                  = 4,
-                supersample_z : int                  = None,
                 max_supersample: int                 = 12) -> "AnalysisResults":
         """
         Run the full analysis pipeline for this patient.
@@ -481,11 +512,6 @@ class PatientPlan:
                         per voxel). Only used when use_fractional=True.
                         Scaled up automatically for small structures — see
                         io._adaptive_supersample. Default: 4.
-        supersample_z : number of z sub-samples per output voxel slab, used
-                        to linearly interpolate ROI coverage between contour
-                        planes (see io.get_fractional_mask_on_grid). Defaults
-                        to `supersample` when not given. Only used when
-                        use_fractional=True.
         max_supersample: hard cap on the adaptive in-plane supersampling
                         factor, to bound compute cost for very small ROIs.
 
@@ -541,7 +567,6 @@ class PatientPlan:
                                 grid_shape,
                                 grid_z_positions,
                                 supersample = supersample,
-                                supersample_z = supersample_z,
                                 max_supersample = max_supersample)
                 
             except Exception as e:
@@ -897,3 +922,89 @@ class AnalysisResults:
         self.plot_dvh( base / "dvh_curves.pdf",  dpi=dpi)
         self.plot_lvh( base / "lvh_curves.pdf",  dpi=dpi)
         self.plot_dlvh(base / "dlvh_2d",         dpi=dpi)
+        
+
+# ============================================================
+#  vRBEResults
+# ============================================================
+
+class vRBEResults:
+    """
+    Container for all outputs from PatientPlan.compute_vRBE().
+    
+    Attributes
+    ----------
+    patient_id  : str
+    model       : str
+    dose_arr    : np.array(), of 1.1-weighted dose
+    let_arr     : np.array(), of Let in kev/um
+    vRBE        : np.array (float) of variablRBE-weighted dose
+    ab_map      : np.array (int)?
+    geom        : dict (órigin,spacing) in (x,y,z). Reminder:  SimpleITK uses x-y-z. Numpy uses z-y-x.
+    
+    """
+
+    def __init__(self,
+                 patient_id : str,
+                 model       : str,
+                 dose_arr    : np.array(), 
+                 let_arr     : np.array(),
+                 vRBE        : np.array(), 
+                 ab_map      : np.array(),
+                 geom        : dict ):
+
+        self.patient_id = patient_id
+        self.model      = model
+        self.dose_arr   = dose_arr 
+        self.let_arr    = let_arr 
+        self.vRBE       = vRBE 
+        self.ab_map     = ab_map if not model.lower() == "linear" else None
+        self.geom       = geom
+    # ----------------------------------------------------------
+    # Export methods
+    # ----------------------------------------------------------
+    
+        
+    def to_nii(self,
+           path      : Union[str, Path],
+           name_vRBE : str = "vRBE.nii.gz",
+           name_ab   : str = "ab_map.nii.gz",
+           name_cRBE   : str = "cRBE.nii.gz",
+           name_let   : str = "LETd.nii.gz") -> None:
+        """
+        Save vRBE dose and α/β map as NIfTI files.
+    
+        Parameters
+        ----------
+        path      : output directory (created if it does not exist)
+        name_vrbe : filename for the vRBE dose volume
+        name_ab   : filename for the α/β map volume
+        """
+        out_dir = Path(path)
+        out_dir.mkdir(parents=True, exist_ok=True)
+    
+        def _arr_to_sitk(arr, origin, spacing):
+            img = sitk.GetImageFromArray(arr.astype(np.float32))
+            img.SetOrigin([float(v) for v in origin])
+            img.SetSpacing([float(v) for v in spacing])
+            return img
+    
+        origin  = self.geom["origin"]   # adjust if geom is a dataclass: self.geom.origin
+        spacing = self.geom["spacing"]
+    
+        sitk.WriteImage(_arr_to_sitk(self.vRBE,  origin, spacing),
+                        str(out_dir / name_vRBE))
+        
+        sitk.WriteImage(_arr_to_sitk(self.dose_arr,  origin, spacing),
+                        str(out_dir / name_cRBE))
+        
+        sitk.WriteImage(_arr_to_sitk(self.let_arr,  origin, spacing),
+                        str(out_dir / name_let))
+        
+        if self.ab_map is not None:
+            sitk.WriteImage(_arr_to_sitk(self.ab_map, origin, spacing),
+                        str(out_dir / name_ab))
+    
+        print(f"  ✓ Saved {name_cRBE},{name_vRBE},{name_let} and {name_ab} → {out_dir}")
+        
+        

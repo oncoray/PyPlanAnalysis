@@ -196,7 +196,14 @@ def compute_rbe_dose(dose_phys: np.ndarray,
     if np.ndim(alpha_beta) > 0 and np.shape(alpha_beta) != np.shape(dose_phys):
         raise ValueError("alpha_beta array must match dose shape")
     
-    if model not in VARIABLE_RBE_MODELS:
+    if model.lower() not in VARIABLE_RBE_MODELS:
         raise ValueError(f"Unknown model '{model}'. "
                          f"Choose from {list(VARIABLE_RBE_MODELS)}")
-    return VARIABLE_RBE_MODELS[model](dose_phys, let_d, n_fractions, alpha_beta)
+    
+    
+    return VARIABLE_RBE_MODELS[model.lower()](dose_phys, let_d, n_fractions, alpha_beta)
+
+
+
+
+
