@@ -481,7 +481,7 @@ class PatientPlan:
                            let_arr = let_arr,
                            vRBE = vRBE,
                            ab_map = ab_map, 
-                           geom = {"origin":grid_origin,"spacing":grid_spacing} )
+                           geom = {"origin" : grid_origin,"spacing" : grid_spacing} )
     
     
     def analyse(self,

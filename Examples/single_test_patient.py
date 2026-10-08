@@ -67,9 +67,11 @@ radiobio_cfg = RadiobiologyConfig(
          "Brain__minus__CTVunion_RBE_V01"       : 0.96,
          "Brainstem"       : 0.96,
          "Hippocampus"     : 2.0,
-         "OpticNerve_L"       :  4
+         "OpticNerve_L"    : 4
     },
+    
     alpha_beta_default = 2.0,
+    
     geud_a_map = {
         "OpticNerve": 4.0,
         "Chiasm"    : 4.0,
