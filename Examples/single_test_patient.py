@@ -109,7 +109,7 @@ results = plan.analyse(
                     )
 
 vRBE_results = plan.compute_vRBE("McNamara",
-                                    structures   = [],#['BrainStem', 'Chiasm', 'OpticNerve_L', 'OpticNerve_R'],# or None for all
+                                    structures   = ['BrainStem', 'Chiasm', 'OpticNerve_L', 'OpticNerve_R'],# or None for all
                                     metric_cfg   = metric_cfg,
                                     radiobio_cfg = radiobio_cfg,
                                     resample_on_CT  = 0,

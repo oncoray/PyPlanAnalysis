@@ -947,10 +947,10 @@ class vRBEResults:
     def __init__(self,
                  patient_id : str,
                  model       : str,
-                 dose_arr    : np.array(), 
-                 let_arr     : np.array(),
-                 vRBE        : np.array(), 
-                 ab_map      : np.array(),
+                 dose_arr    : np.ndarray, 
+                 let_arr     : np.ndarray,
+                 vRBE        : np.ndarray, 
+                 ab_map      : np.ndarray,
                  geom        : dict ):
 
         self.patient_id = patient_id
