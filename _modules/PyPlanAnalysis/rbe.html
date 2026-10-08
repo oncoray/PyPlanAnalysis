@@ -270,7 +270,7 @@
 <span class="sd">    ----------</span>
 <span class="sd">    models : list of str</span>
 <span class="sd">        Any subset of {"mcnamara", "wedenberg", "carabe"}.</span>
-<span class="sd">        Default: all three.</span>
+<span class="sd">        Default: all 4.</span>
 <span class="sd">    fixed_rbe : float</span>
 <span class="sd">        Constant RBE value used for the RBE×fixed calculation.</span>
 <span class="sd">        Default: 1.1</span>
@@ -443,17 +443,28 @@
 <span class="sd">    ----------</span>
 <span class="sd">    dose_phys  : physical dose array [Gy]</span>
 <span class="sd">    let_d      : LETd array [keV/µm], same shape as dose_phys</span>
-<span class="sd">    alpha_beta : α/β ratio [Gy] for this structure</span>
-<span class="sd">    model      : one of "mcnamara", "wedenberg", "carabe"</span>
+<span class="sd">    n_fractions: int (not needed for linear)</span>
+<span class="sd">    alpha_beta : α/β ratio [Gy] for this structure(not needed for linear)</span>
+<span class="sd">    model      : one of "linear","mcnamara", "wedenberg", "carabe"</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    rbe_dose : np.ndarray  [Gy(RBE)]</span>
 <span class="sd">    """</span>
-    <span class="k">if</span> <span class="n">model</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">VARIABLE_RBE_MODELS</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">alpha_beta</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">alpha_beta</span><span class="p">)</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">dose_phys</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"alpha_beta array must match dose shape"</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">VARIABLE_RBE_MODELS</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown model '</span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2">'. "</span>
                          <span class="sa">f</span><span class="s2">"Choose from </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">VARIABLE_RBE_MODELS</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">VARIABLE_RBE_MODELS</span><span class="p">[</span><span class="n">model</span><span class="p">](</span><span class="n">dose_phys</span><span class="p">,</span> <span class="n">let_d</span><span class="p">,</span> <span class="n">n_fractions</span><span class="p">,</span> <span class="n">alpha_beta</span><span class="p">)</span></div>
+    
+    
+    <span class="k">return</span> <span class="n">VARIABLE_RBE_MODELS</span><span class="p">[</span><span class="n">model</span><span class="o">.</span><span class="n">lower</span><span class="p">()](</span><span class="n">dose_phys</span><span class="p">,</span> <span class="n">let_d</span><span class="p">,</span> <span class="n">n_fractions</span><span class="p">,</span> <span class="n">alpha_beta</span><span class="p">)</span></div>
+
+
+
+
+
 
 </pre></div>
         </article>

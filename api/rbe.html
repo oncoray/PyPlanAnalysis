@@ -265,7 +265,7 @@ Carabe     : Carabe et al., Br J Radiol 85(1011):304-14, 2012</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>models</strong> (<em>list</em><em> of </em><em>str</em>) – Any subset of {“mcnamara”, “wedenberg”, “carabe”}.
-Default: all three.</p></li>
+Default: all 4.</p></li>
 <li><p><strong>fixed_rbe</strong> (<em>float</em>) – Constant RBE value used for the RBE×fixed calculation.
 Default: 1.1</p></li>
 </ul>
@@ -390,9 +390,9 @@ beta = beta_x  (constant)</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>dose_phys</strong> (<em>physical dose array</em><em> [</em><em>Gy</em><em>]</em>)</p></li>
 <li><p><strong>let_d</strong> (<em>LETd array</em><em> [</em><em>keV/µm</em><em>]</em><em>, </em><em>same shape as dose_phys</em>)</p></li>
-<li><p><strong>alpha_beta</strong> (<em>α/β ratio</em><em> [</em><em>Gy</em><em>] </em><em>for this structure</em>)</p></li>
-<li><p><strong>model</strong> (<em>one</em><em> of </em><em>&quot;mcnamara&quot;</em><em>, </em><em>&quot;wedenberg&quot;</em><em>, </em><em>&quot;carabe&quot;</em>)</p></li>
-<li><p><strong>n_fractions</strong> (<em>int</em>)</p></li>
+<li><p><strong>n_fractions</strong> (<em>int</em><em> (</em><em>not needed for linear</em><em>)</em>)</p></li>
+<li><p><strong>alpha_beta</strong> (<em>α/β ratio</em><em> [</em><em>Gy</em><em>] </em><em>for this structure</em><em>(</em><em>not needed for linear</em><em>)</em>)</p></li>
+<li><p><strong>model</strong> (<em>one</em><em> of </em><em>&quot;linear&quot;</em><em>,</em><em>&quot;mcnamara&quot;</em><em>, </em><em>&quot;wedenberg&quot;</em><em>, </em><em>&quot;carabe&quot;</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>

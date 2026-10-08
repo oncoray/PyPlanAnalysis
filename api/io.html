@@ -422,7 +422,7 @@ the CT grid on which contours will be rasterised.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="PyPlanAnalysis.io.get_structure_mask_on_grid">
 <span class="sig-name descname"><span class="pre">get_structure_mask_on_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">struct_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtstruct_ds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spacing</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_positions</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#get_structure_mask_on_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.get_structure_mask_on_grid" title="Link to this definition">¶</a></dt>
-<dd><p>Rasterise RT Struct contours for <cite>struct_name</cite> onto an arbitrary grid.</p>
+<dd><p>Rasterise RT Struct contours as BINARY MASKS for <cite>struct_name</cite> onto an arbitrary grid.</p>
 <p>This is the core function used for both dose-grid and CT-grid masking.
 Contour z-values are matched to the nearest z in z_positions.</p>
 <dl class="field-list simple">
@@ -430,7 +430,7 @@ Contour z-values are matched to the nearest z in z_positions.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>struct_name</strong> (<em>str</em>)</p></li>
 <li><p><strong>rtstruct_ds</strong> (<em>pydicom Dataset</em>)</p></li>
-<li><p><strong>origin</strong> (<em>[</em><em>x0</em><em>, </em><em>y0</em><em>, </em><em>z0</em><em>]  </em><em>mm — physical coordinate</em><em> of </em><em>voxel</em><em> (</em><em>0</em><em>,</em><em>0</em><em>,</em><em>0</em><em>) </em><em>corner</em>)</p></li>
+<li><p><strong>origin</strong> (<em>[</em><em>x0</em><em>, </em><em>y0</em><em>, </em><em>z0</em><em>]  </em><em>mm — physical coordinate</em><em> of </em><em>voxel</em><em> (</em><em>0</em><em>,</em><em>0</em><em>,</em><em>0</em><em>) </em><em>corner</em><em>, </em><em>then converted to voxel center</em>)</p></li>
 <li><p><strong>spacing</strong> (<em>[</em><a class="reference internal" href="metrics.html#PyPlanAnalysis.metrics.MetricConfig.dx" title="PyPlanAnalysis.metrics.MetricConfig.dx"><em>dx</em></a><em>, </em><em>dy</em><em>, </em><em>dz</em><em>]  </em><em>mm</em>)</p></li>
 <li><p><strong>shape</strong> (<em>(</em><em>nz</em><em>, </em><em>ny</em><em>, </em><em>nx</em><em>) </em><em>— numpy array shape</em>)</p></li>
 <li><p><strong>z_positions</strong> (<em>1-D array</em><em> of </em><em>z-coordinates for each slice</em><em> (</em><em>length nz</em><em>)</em>)</p></li>
@@ -577,12 +577,158 @@ changing cross-sectional area between slices.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="PyPlanAnalysis.io.compute_roi_volume_from_contours">
+<span class="sig-name descname"><span class="pre">compute_roi_volume_from_contours</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">struct_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtstruct_ds</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#compute_roi_volume_from_contours"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.compute_roi_volume_from_contours" title="Link to this definition">¶</a></dt>
+<dd><p>Compute the ROI’s total volume (cc) directly from its contour polygon
+geometry, at the NATIVE contour z-spacing — independent of any
+dose/LET/analysis grid resolution.</p>
+<p>TECHNICAL JUSTIFICATION: <code class="docutils literal notranslate"><span class="pre">get_fractional_mask_on_grid</span></code> (and hence
+<code class="docutils literal notranslate"><span class="pre">compute_dvh_metrics</span></code>/<code class="docutils literal notranslate"><span class="pre">compute_let_metrics</span></code> in metrics.py, which
+normalise Vx%/Dx%/Lx% by the sum of that mask’s fractional weights)
+reports volume on whatever analysis grid the mask was rasterised on
+(e.g. a resampled dose/LET grid, <code class="docutils literal notranslate"><span class="pre">New_grid</span></code> — commonly coarser than
+the CT the structure was actually contoured on). For structures that
+only span a handful of voxels across that grid (small serial OARs:
+optic nerves, chiasm, lenses, lacrimal glands), that grid-resolution
+dependence is the dominant source of volume error, which then
+propagates into every weighted DVH/LVH percentile metric for that
+structure (they all share the same total-weight normalisation).</p>
+<p>This function instead reconstructs volume the way most TPS systems
+report “ROI volume” — directly from the contour polygons themselves:
+net in-plane area per true contour slice (<code class="docutils literal notranslate"><span class="pre">_slice_net_area_mm2</span></code>,
+correctly excluding holes), trapezoidal integration between
+consecutive TRUE contour z-planes at their native (possibly
+irregular) spacing, plus a half-native-spacing end-cap extension at
+each pole — the same physical convention <code class="docutils literal notranslate"><span class="pre">get_fractional_mask_on_grid</span></code>
+uses for its own z-extent padding, so the two stay consistent with
+each other even though this number is otherwise grid-independent.</p>
+<p>Use this as the authoritative reported <code class="docutils literal notranslate"><span class="pre">volume_cc</span></code> for a structure.
+Note that it is NOT automatically a safe drop-in replacement for the
+weighted-percentile normalisation used inside <code class="docutils literal notranslate"><span class="pre">compute_dvh_metrics</span></code>/
+<code class="docutils literal notranslate"><span class="pre">compute_let_metrics</span></code> (Vx%, Dx%, Lx%, …): those numerators are
+still computed from the analysis-grid mask, so swapping only the
+denominator to a different, higher-resolution source is only
+self-consistent once the grid-captured voxel population is itself a
+low-bias subsample of the true structure (see the exact z-integration
+in <code class="docutils literal notranslate"><span class="pre">get_fractional_mask_on_grid</span></code>, which is what makes that
+assumption reasonable in the first place).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>struct_name</strong> (<em>str</em>)</p></li>
+<li><p><strong>rtstruct_ds</strong> (<em>pydicom Dataset</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>float — ROI volume in cc.</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyPlanAnalysis.io.rasterize_slice_coverage">
+<span class="sig-name descname"><span class="pre">rasterize_slice_coverage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">slice_polys</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ny</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#rasterize_slice_coverage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.rasterize_slice_coverage" title="Link to this definition">¶</a></dt>
+<dd><p>Rasterise ALL polygon loops belonging to ONE true contour z-position
+(i.e. one DICOM ContourData slice) into a single in-plane fractional
+coverage map, islands added and holes subtracted per
+<code class="docutils literal notranslate"><span class="pre">_classify_holes_by_nesting</span></code>.</p>
+<p>Factored out of <code class="docutils literal notranslate"><span class="pre">get_fractional_mask_on_grid</span></code> so that in-plane
+coverage can be computed once per ORIGINAL contour z (see that
+function’s docstring for why this must be decoupled from the output
+grid’s z-slices).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>slice_polys</strong> (<em>list</em><em> of </em><em>np.ndarray</em><em>, </em><em>shape</em><em> (</em><em>M</em><em>, </em><em>2</em><em>)</em>) – Polygon loops (islands + holes) for one contour slice, in mm.</p></li>
+<li><p><strong>x0</strong> (see <code class="docutils literal notranslate"><span class="pre">rasterize_supersampled</span></code>.)</p></li>
+<li><p><strong>y0</strong> (see <code class="docutils literal notranslate"><span class="pre">rasterize_supersampled</span></code>.)</p></li>
+<li><p><strong>dx</strong> (see <code class="docutils literal notranslate"><span class="pre">rasterize_supersampled</span></code>.)</p></li>
+<li><p><strong>dy</strong> (see <code class="docutils literal notranslate"><span class="pre">rasterize_supersampled</span></code>.)</p></li>
+<li><p><strong>ny</strong> (see <code class="docutils literal notranslate"><span class="pre">rasterize_supersampled</span></code>.)</p></li>
+<li><p><strong>nx</strong> (see <code class="docutils literal notranslate"><span class="pre">rasterize_supersampled</span></code>.)</p></li>
+<li><p><strong>N</strong> (see <code class="docutils literal notranslate"><span class="pre">rasterize_supersampled</span></code>.)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>np.ndarray, shape (ny, nx), float32</em> – Fractional in-plane coverage, clipped to [0, 1].</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="PyPlanAnalysis.io.get_fractional_mask_on_grid">
-<span class="sig-name descname"><span class="pre">get_fractional_mask_on_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">struct_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtstruct_ds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spacing</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_positions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">supersample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#get_fractional_mask_on_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.get_fractional_mask_on_grid" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_fractional_mask_on_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">struct_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtstruct_ds</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spacing</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_positions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">supersample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_supersample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">12</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#get_fractional_mask_on_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.get_fractional_mask_on_grid" title="Link to this definition">¶</a></dt>
 <dd><p>Compute a fractional voxel membership mask on an arbitrary grid.</p>
 <p>Each voxel receives a value in [0,1] — the fraction of its physical
-area (in xy) that lies inside the RT Struct contour, estimated by
-supersampling (supersample² sub-points per voxel).</p>
+VOLUME (in-plane AND through-slice) that lies inside the RT Struct
+contour. In-plane coverage is estimated by supersampling
+(adaptive N² sub-points per voxel, see <code class="docutils literal notranslate"><span class="pre">_adaptive_supersample</span></code>).
+Through-slice (z) coverage is estimated by treating the true contour
+z-positions as control planes and interpolating the STRUCTURE’S
+BOUNDARY GEOMETRY — not its raw in-plane coverage/opacity — between
+the bracketing contour slices across each output voxel’s z-extent.
+This is done via shape-based interpolation: each contour slice’s
+fractional coverage raster is first converted to a 2-D signed
+distance field (SDF, see <code class="docutils literal notranslate"><span class="pre">_coverage_to_sdf</span></code>); the per-voxel z-slab
+is then integrated EXACTLY in SDF space (<code class="docutils literal notranslate"><span class="pre">_slab_avg_sdf_exact</span></code> —
+see that function’s docstring, and NOTE below), not by sub-sampling;
+and the resulting averaged SDF is converted back to a fractional
+coverage raster only once, at the end (<code class="docutils literal notranslate"><span class="pre">_sdf_to_coverage</span></code>).</p>
+<p>NOTE on the z-integration being exact rather than sub-sampled: the
+SDF field is piecewise LINEAR in z by construction (linear between
+each pair of adjacent true contour planes, constant beyond the
+first/last). The integral average of a piecewise-linear function
+over any interval is available in closed form from its endpoint
+values at each linear segment (trapezoid rule, exact for linear
+functions) — so no <code class="docutils literal notranslate"><span class="pre">Nz</span></code> sub-sampling parameter is needed, and there
+is zero z-quadrature error regardless of how coarse the output
+grid’s dz is relative to the native contour spacing, or how many true
+contour planes fall inside one output voxel’s z-slab. (A generic
+fixed-<code class="docutils literal notranslate"><span class="pre">Nz</span></code> sub-sampling grid — the previous approach — is only
+exact when a slab happens to fall entirely within one linear segment;
+it carries residual error whenever a slab straddles an interior
+contour plane, which is exactly the case where the output grid is
+coarser than the contour spacing.) The exact integration also
+correctly handles voxels whose z-extent only PARTIALLY overlaps the
+structure’s true (padded) extent — e.g. the ROI’s first/last output
+slice — by scaling the covered region’s coverage down by the actual
+overlap fraction, rather than reporting the covered portion’s
+coverage as if it applied to the voxel’s full z-extent.</p>
+<p>TECHNICAL JUSTIFICATION for the z-interpolation (this is the main
+change from the previous version): contours were previously snapped
+to the single nearest output z-index, so an output voxel’s z-extent
+was always either “fully in” or “fully out” of the structure — no
+different, in the z direction, from a hard binary mask. This
+reproduces the same staircase/quantization error along the
+cranial-caudal axis that fractional in-plane weighting was written to
+avoid in-plane, and it gets worse whenever the analysis grid’s z
+spacing does not match the original contour spacing (e.g. resampling
+dose/LET/mask onto a coarser custom grid).</p>
+<p>A direct linear blend of the raw coverage rasters (alpha
+cross-dissolving) was tried first, but that interpolates OPACITY, not
+GEOMETRY: wherever the cross-section shifts, rotates, or changes size
+between two contour planes (tapering structures, branching anatomy,
+slightly mis-registered slices), an opacity blend produces a faint,
+eroded double-exposure of both shapes rather than a smoothly moving
+boundary, understating volume in exactly the transition regions where
+accuracy matters most. Interpolating signed distance fields instead
+— the classical “shape-based interpolation” approach (Raya &amp; Udupa,
+1990) — averages DISTANCE TO THE BOUNDARY rather than opacity, so the
+reconstructed boundary at any intermediate depth is the correct
+(piecewise-linear-in-distance) locus of points equidistant between
+the two true contours; this is the discretised equivalent of lofting
+a triangulated surface between them, without an opacity blend’s
+tendency to thin the structure out.</p>
+<p>Outside the structure’s own z-extent, the boundary geometry (i.e. the
+SDF, hence coverage) is held constant at the nearest edge slice’s
+value (rather than tapering to zero), because RTSTRUCT contours
+conventionally represent the slice-thickness worth of structure
+centred on each contour, so the ROI is assumed to occupy a
+half-slice-thickness beyond the first/last contour plane, not to end
+exactly on it.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -592,7 +738,8 @@ supersampling (supersample² sub-points per voxel).</p>
 <li><p><strong>spacing</strong> (<em>[</em><a class="reference internal" href="metrics.html#PyPlanAnalysis.metrics.MetricConfig.dx" title="PyPlanAnalysis.metrics.MetricConfig.dx"><em>dx</em></a><em>, </em><em>dy</em><em>, </em><em>dz</em><em>]  </em><em>mm</em>)</p></li>
 <li><p><strong>shape</strong> (<em>(</em><em>nz</em><em>, </em><em>ny</em><em>, </em><em>nx</em><em>)</em>)</p></li>
 <li><p><strong>z_positions</strong> (<em>1-D array length nz</em>)</p></li>
-<li><p><strong>supersample</strong> (<em>N subdivisions per side</em><em> (</em><em>default 4 → 16 sub-points/voxel</em><em>)</em>)</p></li>
+<li><p><strong>supersample</strong> (<em>baseline in-plane N</em><em> (</em><em>default 4</em><em>)</em><em>. Scaled up</em>) – per-structure by <code class="docutils literal notranslate"><span class="pre">_adaptive_supersample</span></code>.</p></li>
+<li><p><strong>max_supersample</strong> (<em>hard cap for the adaptive in-plane N.</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -603,6 +750,11 @@ supersampling (supersample² sub-points per voxel).</p>
 </dd>
 </dl>
 </dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyPlanAnalysis.io.save_nifti">
+<span class="sig-name descname"><span class="pre">save_nifti</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref_img</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/io.html#save_nifti"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.io.save_nifti" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </section>
 
@@ -677,7 +829,10 @@ supersampling (supersample² sub-points per voxel).</p>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.rasterize_supersampled"><code class="docutils literal notranslate"><span class="pre">rasterize_supersampled()</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.compute_roi_volume_comparison"><code class="docutils literal notranslate"><span class="pre">compute_roi_volume_comparison()</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.prismatoid_volume"><code class="docutils literal notranslate"><span class="pre">prismatoid_volume()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.io.compute_roi_volume_from_contours"><code class="docutils literal notranslate"><span class="pre">compute_roi_volume_from_contours()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.io.rasterize_slice_coverage"><code class="docutils literal notranslate"><span class="pre">rasterize_slice_coverage()</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.io.get_fractional_mask_on_grid"><code class="docutils literal notranslate"><span class="pre">get_fractional_mask_on_grid()</span></code></a></li>
+<li><a class="reference internal" href="#PyPlanAnalysis.io.save_nifti"><code class="docutils literal notranslate"><span class="pre">save_nifti()</span></code></a></li>
 </ul>
 </li>
 </ul>

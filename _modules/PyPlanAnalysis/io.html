@@ -253,6 +253,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">pydicom</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">splprep</span><span class="p">,</span> <span class="n">splev</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.ndimage</span><span class="w"> </span><span class="kn">import</span> <span class="n">distance_transform_edt</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">skimage.draw</span><span class="w"> </span><span class="kn">import</span> <span class="n">polygon</span> <span class="k">as</span> <span class="n">sk_polygon</span>
@@ -1077,7 +1078,7 @@
                                <span class="n">shape</span><span class="p">:</span>       <span class="nb">tuple</span><span class="p">,</span>
                                <span class="n">z_positions</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Rasterise RT Struct contours for `struct_name` onto an arbitrary grid.</span>
+<span class="sd">    Rasterise RT Struct contours as BINARY MASKS for `struct_name` onto an arbitrary grid.</span>
 <span class="sd"> </span>
 <span class="sd">    This is the core function used for both dose-grid and CT-grid masking.</span>
 <span class="sd">    Contour z-values are matched to the nearest z in z_positions.</span>
@@ -1086,7 +1087,7 @@
 <span class="sd">    ----------</span>
 <span class="sd">    struct_name  : str</span>
 <span class="sd">    rtstruct_ds  : pydicom Dataset</span>
-<span class="sd">    origin       : [x0, y0, z0]  mm — physical coordinate of voxel (0,0,0) corner</span>
+<span class="sd">    origin       : [x0, y0, z0]  mm — physical coordinate of voxel (0,0,0) corner, then converted to voxel center</span>
 <span class="sd">    spacing      : [dx, dy, dz]  mm</span>
 <span class="sd">    shape        : (nz, ny, nx) — numpy array shape</span>
 <span class="sd">    z_positions  : 1-D array of z-coordinates for each slice (length nz)</span>
@@ -1285,8 +1286,8 @@
 <span class="sd">    np.ndarray, shape (ny, nx), float32</span>
 <span class="sd">        Fractional coverage of each voxel by the polygon, in [0, 1].</span>
 <span class="sd">    """</span>
-    <span class="n">xi</span> <span class="o">=</span> <span class="p">(</span><span class="n">smooth_xy</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">N</span>
-    <span class="n">yi</span> <span class="o">=</span> <span class="p">(</span><span class="n">smooth_xy</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y0</span><span class="p">)</span> <span class="o">/</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">N</span>
+    <span class="n">xi</span> <span class="o">=</span> <span class="p">(</span><span class="n">smooth_xy</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x0</span> <span class="o">+</span> <span class="n">dx</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">N</span> <span class="c1"># account for voxel center! dx/2 shift</span>
+    <span class="n">yi</span> <span class="o">=</span> <span class="p">(</span><span class="n">smooth_xy</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y0</span> <span class="o">+</span> <span class="n">dy</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">N</span>
 
     <span class="n">rr</span><span class="p">,</span> <span class="n">cc</span> <span class="o">=</span> <span class="n">sk_polygon</span><span class="p">(</span><span class="n">yi</span><span class="p">,</span> <span class="n">xi</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">ny</span> <span class="o">*</span> <span class="n">N</span><span class="p">,</span> <span class="n">nx</span> <span class="o">*</span> <span class="n">N</span><span class="p">))</span>
     <span class="n">super_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ny</span> <span class="o">*</span> <span class="n">N</span><span class="p">,</span> <span class="n">nx</span> <span class="o">*</span> <span class="n">N</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -1364,39 +1365,112 @@
     <span class="k">return</span> <span class="n">vol</span> <span class="o">/</span> <span class="mf">1000.0</span></div>
 
 
-         
-<div class="viewcode-block" id="get_fractional_mask_on_grid">
-<a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.get_fractional_mask_on_grid">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">get_fractional_mask_on_grid</span><span class="p">(</span><span class="n">struct_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-                                <span class="n">rtstruct_ds</span><span class="p">,</span>
-                                <span class="n">origin</span><span class="p">:</span>      <span class="nb">list</span><span class="p">,</span>
-                                <span class="n">spacing</span><span class="p">:</span>     <span class="nb">list</span><span class="p">,</span>
-                                <span class="n">shape</span><span class="p">:</span>       <span class="nb">tuple</span><span class="p">,</span>
-                                <span class="n">z_positions</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-                                <span class="n">supersample</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_classify_holes_by_nesting</span><span class="p">(</span><span class="n">slice_polys</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Compute a fractional voxel membership mask on an arbitrary grid.</span>
-<span class="sd"> </span>
-<span class="sd">    Each voxel receives a value in [0,1] — the fraction of its physical</span>
-<span class="sd">    area (in xy) that lies inside the RT Struct contour, estimated by</span>
-<span class="sd">    supersampling (supersample² sub-points per voxel).</span>
-<span class="sd"> </span>
+<span class="sd">    Determine hole/island status for a set of coplanar polygon loops</span>
+<span class="sd">    using point-in-polygon NESTING DEPTH (even-odd rule), instead of only</span>
+<span class="sd">    testing each polygon against larger-area ones in sequence.</span>
+
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    struct_name  : str</span>
-<span class="sd">    rtstruct_ds  : pydicom Dataset</span>
-<span class="sd">    origin       : [x0, y0, z0]  mm</span>
-<span class="sd">    spacing      : [dx, dy, dz]  mm</span>
-<span class="sd">    shape        : (nz, ny, nx)</span>
-<span class="sd">    z_positions  : 1-D array length nz</span>
-<span class="sd">    supersample  : N subdivisions per side (default 4 → 16 sub-points/voxel)</span>
-<span class="sd"> </span>
+<span class="sd">    slice_polys : list of np.ndarray, shape (M, 2)</span>
+<span class="sd">        All polygon loops belonging to one contour slice (one true z).</span>
+
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    frac_mask : np.ndarray float32, shape (nz, ny, nx), values in [0, 1]</span>
+<span class="sd">    list of bool, same length as slice_polys</span>
+<span class="sd">        True where the polygon at that index is a hole (odd nesting depth).</span>
+<span class="sd">    """</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">slice_polys</span><span class="p">)</span>
+    <span class="n">depth</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">poly_i</span>    <span class="o">=</span> <span class="n">slice_polys</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">test_pts</span>  <span class="o">=</span> <span class="n">poly_i</span><span class="p">[::</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">poly_i</span><span class="p">)</span> <span class="o">//</span> <span class="mi">5</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">path_j</span> <span class="o">=</span> <span class="n">MplPath</span><span class="p">(</span><span class="n">slice_polys</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">closed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">path_j</span><span class="o">.</span><span class="n">contains_points</span><span class="p">(</span><span class="n">test_pts</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">:</span>
+                <span class="n">depth</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">d</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">depth</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_slice_net_area_mm2</span><span class="p">(</span><span class="n">slice_polys</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Net in-plane area (mm²) of one contour slice, subtracting hole loops</span>
+<span class="sd">    (nested contours representing a cavity) from their parent polygon's</span>
+<span class="sd">    area via ``_classify_holes_by_nesting`` + ``contour_area_signed``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    slice_polys : list of np.ndarray, shape (M, 2)</span>
+<span class="sd">        All polygon loops belonging to one contour slice (one true z).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float — net area, mm², always &gt;= 0 for a well-formed contour set.</span>
+<span class="sd">    """</span>
+    <span class="n">is_hole</span> <span class="o">=</span> <span class="n">_classify_holes_by_nesting</span><span class="p">(</span><span class="n">slice_polys</span><span class="p">)</span>
+    <span class="n">net</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">poly</span><span class="p">,</span> <span class="n">hole</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">slice_polys</span><span class="p">,</span> <span class="n">is_hole</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">contour_area_signed</span><span class="p">(</span><span class="n">poly</span><span class="p">))</span>
+        <span class="n">net</span> <span class="o">+=</span> <span class="o">-</span><span class="n">a</span> <span class="k">if</span> <span class="n">hole</span> <span class="k">else</span> <span class="n">a</span>
+    <span class="k">return</span> <span class="n">net</span>
+
+
+<div class="viewcode-block" id="compute_roi_volume_from_contours">
+<a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.compute_roi_volume_from_contours">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_roi_volume_from_contours</span><span class="p">(</span><span class="n">struct_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rtstruct_ds</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Compute the ROI's total volume (cc) directly from its contour polygon</span>
+<span class="sd">    geometry, at the NATIVE contour z-spacing — independent of any</span>
+<span class="sd">    dose/LET/analysis grid resolution.</span>
+
+<span class="sd">    TECHNICAL JUSTIFICATION: ``get_fractional_mask_on_grid`` (and hence</span>
+<span class="sd">    ``compute_dvh_metrics``/``compute_let_metrics`` in metrics.py, which</span>
+<span class="sd">    normalise Vx%/Dx%/Lx% by the sum of that mask's fractional weights)</span>
+<span class="sd">    reports volume on whatever analysis grid the mask was rasterised on</span>
+<span class="sd">    (e.g. a resampled dose/LET grid, ``New_grid`` — commonly coarser than</span>
+<span class="sd">    the CT the structure was actually contoured on). For structures that</span>
+<span class="sd">    only span a handful of voxels across that grid (small serial OARs:</span>
+<span class="sd">    optic nerves, chiasm, lenses, lacrimal glands), that grid-resolution</span>
+<span class="sd">    dependence is the dominant source of volume error, which then</span>
+<span class="sd">    propagates into every weighted DVH/LVH percentile metric for that</span>
+<span class="sd">    structure (they all share the same total-weight normalisation).</span>
+
+<span class="sd">    This function instead reconstructs volume the way most TPS systems</span>
+<span class="sd">    report "ROI volume" — directly from the contour polygons themselves:</span>
+<span class="sd">    net in-plane area per true contour slice (``_slice_net_area_mm2``,</span>
+<span class="sd">    correctly excluding holes), trapezoidal integration between</span>
+<span class="sd">    consecutive TRUE contour z-planes at their native (possibly</span>
+<span class="sd">    irregular) spacing, plus a half-native-spacing end-cap extension at</span>
+<span class="sd">    each pole — the same physical convention ``get_fractional_mask_on_grid``</span>
+<span class="sd">    uses for its own z-extent padding, so the two stay consistent with</span>
+<span class="sd">    each other even though this number is otherwise grid-independent.</span>
+
+<span class="sd">    Use this as the authoritative reported ``volume_cc`` for a structure.</span>
+<span class="sd">    Note that it is NOT automatically a safe drop-in replacement for the</span>
+<span class="sd">    weighted-percentile normalisation used inside ``compute_dvh_metrics``/</span>
+<span class="sd">    ``compute_let_metrics`` (Vx%, Dx%, Lx%, ...): those numerators are</span>
+<span class="sd">    still computed from the analysis-grid mask, so swapping only the</span>
+<span class="sd">    denominator to a different, higher-resolution source is only</span>
+<span class="sd">    self-consistent once the grid-captured voxel population is itself a</span>
+<span class="sd">    low-bias subsample of the true structure (see the exact z-integration</span>
+<span class="sd">    in ``get_fractional_mask_on_grid``, which is what makes that</span>
+<span class="sd">    assumption reasonable in the first place).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    struct_name : str</span>
+<span class="sd">    rtstruct_ds : pydicom Dataset</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float — ROI volume in cc.</span>
 <span class="sd">    """</span>
     <span class="n">name_to_roi</span><span class="p">,</span> <span class="n">roi_to_contours</span> <span class="o">=</span> <span class="n">_build_roi_maps</span><span class="p">(</span><span class="n">rtstruct_ds</span><span class="p">)</span>
- 
+
     <span class="n">key</span> <span class="o">=</span> <span class="n">struct_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">name_to_roi</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -1405,70 +1479,591 @@
         <span class="p">)</span>
     <span class="n">roi_number</span> <span class="o">=</span> <span class="n">name_to_roi</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
     <span class="n">contours</span>   <span class="o">=</span> <span class="n">roi_to_contours</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">roi_number</span><span class="p">,</span> <span class="p">[])</span>
- 
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">contours</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No contour data for '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">'."</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+
+    <span class="n">slice_polys_by_z</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">pts</span> <span class="ow">in</span> <span class="n">contours</span><span class="p">:</span>
+        <span class="n">z_val</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">pts</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">slice_polys_by_z</span><span class="p">[</span><span class="n">z_val</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">])</span>
+
+    <span class="n">sorted_z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">slice_polys_by_z</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+    <span class="n">areas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">_slice_net_area_mm2</span><span class="p">(</span><span class="n">slice_polys_by_z</span><span class="p">[</span><span class="n">z</span><span class="p">])</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">sorted_z</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># A single contour slice carries no native z-spacing to infer a</span>
+        <span class="c1"># slice thickness from; that has to come from the CT/RTSTRUCT</span>
+        <span class="c1"># geometry, which this function deliberately doesn't depend on.</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">': only one contour slice — cannot infer a "</span>
+            <span class="s2">"native slice spacing from contour z-positions alone; "</span>
+            <span class="s2">"returning 0.0. Use get_fractional_mask_on_grid() with a "</span>
+            <span class="s2">"known dz instead for single-slice ROIs."</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+
+    <span class="c1"># trapezoidal integration between consecutive TRUE contour planes, at</span>
+    <span class="c1"># their TRUE (possibly irregular) native spacing — not any grid's dz.</span>
+    <span class="n">dz_native</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">)</span>
+    <span class="n">vol_mm3</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dz_native</span> <span class="o">*</span> <span class="p">(</span><span class="n">areas</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">areas</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">))</span>
+
+    <span class="c1"># half-native-spacing end-cap extension at each pole, held at that end</span>
+    <span class="c1"># slice's own area — matches get_fractional_mask_on_grid's convention</span>
+    <span class="n">pad_lo</span> <span class="o">=</span> <span class="n">dz_native</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span>
+    <span class="n">pad_hi</span> <span class="o">=</span> <span class="n">dz_native</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span>
+    <span class="n">vol_mm3</span> <span class="o">+=</span> <span class="n">pad_lo</span> <span class="o">*</span> <span class="n">areas</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">pad_hi</span> <span class="o">*</span> <span class="n">areas</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">vol_mm3</span> <span class="o">/</span> <span class="mf">1000.0</span></div>
+
+
+<div class="viewcode-block" id="rasterize_slice_coverage">
+<a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.rasterize_slice_coverage">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rasterize_slice_coverage</span><span class="p">(</span><span class="n">slice_polys</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">N</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Rasterise ALL polygon loops belonging to ONE true contour z-position</span>
+<span class="sd">    (i.e. one DICOM ContourData slice) into a single in-plane fractional</span>
+<span class="sd">    coverage map, islands added and holes subtracted per</span>
+<span class="sd">    ``_classify_holes_by_nesting``.</span>
+
+<span class="sd">    Factored out of ``get_fractional_mask_on_grid`` so that in-plane</span>
+<span class="sd">    coverage can be computed once per ORIGINAL contour z (see that</span>
+<span class="sd">    function's docstring for why this must be decoupled from the output</span>
+<span class="sd">    grid's z-slices).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    slice_polys : list of np.ndarray, shape (M, 2)</span>
+<span class="sd">        Polygon loops (islands + holes) for one contour slice, in mm.</span>
+<span class="sd">    x0, y0, dx, dy, ny, nx, N : see ``rasterize_supersampled``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray, shape (ny, nx), float32</span>
+<span class="sd">        Fractional in-plane coverage, clipped to [0, 1].</span>
+<span class="sd">    """</span>
+    <span class="n">coverage</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">valid_polys</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">slice_polys</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_polys</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">coverage</span>
+
+    <span class="n">is_hole</span> <span class="o">=</span> <span class="n">_classify_holes_by_nesting</span><span class="p">(</span><span class="n">valid_polys</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">poly_xy</span><span class="p">,</span> <span class="n">hole</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">valid_polys</span><span class="p">,</span> <span class="n">is_hole</span><span class="p">):</span>
+        <span class="n">fraction</span> <span class="o">=</span> <span class="n">rasterize_supersampled</span><span class="p">(</span><span class="n">poly_xy</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">coverage</span> <span class="o">=</span> <span class="n">coverage</span> <span class="o">-</span> <span class="n">fraction</span> <span class="k">if</span> <span class="n">hole</span> <span class="k">else</span> <span class="n">coverage</span> <span class="o">+</span> <span class="n">fraction</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">coverage</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_directional_pixel_size</span><span class="p">(</span><span class="n">sdf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dy</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Per-pixel local antialiasing width for a possibly anisotropic</span>
+<span class="sd">    (dx != dy) in-plane grid, used in place of a single scalar</span>
+<span class="sd">    ``(dx + dy) / 2`` estimate.</span>
+
+<span class="sd">    TECHNICAL JUSTIFICATION: an axis-aligned rectangular pixel of size</span>
+<span class="sd">    dx (x) by dy (y), sliced by a straight boundary crossing it at angle</span>
+<span class="sd">    theta to the x-axis, spans a length dx*|cos theta| + dy*|sin theta|</span>
+<span class="sd">    along the boundary-normal direction — the standard "screen-space</span>
+<span class="sd">    derivative" / fwidth footprint used for antialiasing distance-field</span>
+<span class="sd">    edges (e.g. Green, "Improved Alpha-Tested Magnenta Field Textures",</span>
+<span class="sd">    SIGGRAPH 2007). A flat (dx + dy) / 2 average is only correct for the</span>
+<span class="sd">    two axis-aligned cases (theta = 0 or 90 deg) and, for anisotropic</span>
+<span class="sd">    grids, silently uses the WRONG antialiasing width everywhere the</span>
+<span class="sd">    boundary isn't axis-aligned — e.g. with dx=0.5 mm, dy=3 mm, a</span>
+<span class="sd">    boundary running mostly along y (normal mostly along x, theta~0) has</span>
+<span class="sd">    a true footprint of ~0.5 mm, not the averaged 1.75 mm, so the old</span>
+<span class="sd">    code was over-smoothing/over-blurring the reconstructed edge in the</span>
+<span class="sd">    fine (x) direction and under-resolving it relative to the coarse (y)</span>
+<span class="sd">    direction.</span>
+
+<span class="sd">    Because a proper Euclidean SDF has unit-magnitude gradient almost</span>
+<span class="sd">    everywhere (|grad sdf| = 1), the boundary-normal direction at each</span>
+<span class="sd">    pixel can be read directly off the SDF's own gradient, without any</span>
+<span class="sd">    extra geometry — this is exactly what makes an SDF representation</span>
+<span class="sd">    convenient here, on top of its use for shape-based z-interpolation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sdf      : np.ndarray, shape (ny, nx) — signed distance field, mm.</span>
+<span class="sd">        Only its local gradient DIRECTION is used, not its magnitude.</span>
+<span class="sd">    dx, dy   : float — in-plane voxel spacing, mm.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray, float32, shape (ny, nx)</span>
+<span class="sd">        Local antialiasing width in mm, one value per pixel. Falls back</span>
+<span class="sd">        to the isotropic ``(dx + dy) / 2`` estimate wherever the</span>
+<span class="sd">        gradient is degenerate (e.g. deep in a uniform interior/exterior</span>
+<span class="sd">        region, or a perfectly flat plateau) — irrelevant there anyway,</span>
+<span class="sd">        since the antialiasing ramp saturates to 0 or 1 far from the</span>
+<span class="sd">        boundary regardless of its width.</span>
+<span class="sd">    """</span>
+    <span class="n">gy</span><span class="p">,</span> <span class="n">gx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">sdf</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">gx</span> <span class="o">*</span> <span class="n">gx</span> <span class="o">+</span> <span class="n">gy</span> <span class="o">*</span> <span class="n">gy</span><span class="p">)</span>
+    <span class="n">fallback</span> <span class="o">=</span> <span class="p">(</span><span class="n">dx</span> <span class="o">+</span> <span class="n">dy</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+
+    <span class="n">safe_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">norm</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="n">norm</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">nx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">gx</span><span class="p">)</span> <span class="o">/</span> <span class="n">safe_norm</span>
+    <span class="n">ny</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">gy</span><span class="p">)</span> <span class="o">/</span> <span class="n">safe_norm</span>
+    <span class="n">directional</span> <span class="o">=</span> <span class="n">dx</span> <span class="o">*</span> <span class="n">nx</span> <span class="o">+</span> <span class="n">dy</span> <span class="o">*</span> <span class="n">ny</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">norm</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="n">directional</span><span class="p">,</span> <span class="n">fallback</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_coverage_to_sdf</span><span class="p">(</span><span class="n">coverage</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dy</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                      <span class="n">subpixel_refine</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Convert an in-plane fractional coverage raster into a 2-D signed</span>
+<span class="sd">    distance field (SDF), in mm, positive INSIDE the structure and</span>
+<span class="sd">    negative OUTSIDE, magnitude = distance to the nearest boundary.</span>
+
+<span class="sd">    This is the per-slice building block for shape-based z-interpolation</span>
+<span class="sd">    (see ``get_fractional_mask_on_grid``): rather than linearly blending</span>
+<span class="sd">    opacity/coverage values between two contour planes — which is known</span>
+<span class="sd">    to erode or "melt" the structure wherever its cross-section changes</span>
+<span class="sd">    shape, size, or position between planes (a classic artifact of alpha</span>
+<span class="sd">    cross-dissolving two masks) — we interpolate the *geometry* of the</span>
+<span class="sd">    boundary itself, which is what an SDF encodes.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    coverage : np.ndarray, shape (ny, nx)</span>
+<span class="sd">        Fractional in-plane coverage map in [0, 1], as produced by</span>
+<span class="sd">        ``rasterize_slice_coverage``.</span>
+<span class="sd">    dx, dy   : float — in-plane voxel spacing, mm. Passed as the EDT</span>
+<span class="sd">        ``sampling`` (already correctly anisotropic-aware there) and,</span>
+<span class="sd">        when ``subpixel_refine`` is set, used via</span>
+<span class="sd">        ``_directional_pixel_size`` to scale the boundary refinement per</span>
+<span class="sd">        pixel according to local boundary orientation rather than a</span>
+<span class="sd">        single isotropic average — see that function's docstring.</span>
+<span class="sd">    subpixel_refine : bool</span>
+<span class="sd">        If True, overwrite the boundary-adjacent band of the distance</span>
+<span class="sd">        transform (|sdf| &lt;= local pixel footprint) with a direct</span>
+<span class="sd">        estimate derived from the antialiased coverage fraction itself,</span>
+<span class="sd">        (coverage - 0.5) * local_pixel_size. The plain Euclidean</span>
+<span class="sd">        distance transform only "sees" the binarised (coverage &gt;= 0.5)</span>
+<span class="sd">        raster and is therefore blind to sub-pixel boundary position;</span>
+<span class="sd">        this refinement folds that information back in near the</span>
+<span class="sd">        boundary where it matters most.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray, float32, shape (ny, nx)</span>
+<span class="sd">        Signed distance field in mm. Fully-outside or fully-inside</span>
+<span class="sd">        rasters (no boundary present) return a uniform large-magnitude</span>
+<span class="sd">        constant field so they behave correctly under interpolation</span>
+<span class="sd">        with a neighbouring slice that does have a boundary.</span>
+<span class="sd">    """</span>
+    <span class="n">inside</span> <span class="o">=</span> <span class="n">coverage</span> <span class="o">&gt;=</span> <span class="mf">0.5</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">inside</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">coverage</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0e3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">inside</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">coverage</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="mf">1.0e3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="n">dist_in</span>  <span class="o">=</span> <span class="n">distance_transform_edt</span><span class="p">(</span><span class="n">inside</span><span class="p">,</span>  <span class="n">sampling</span><span class="o">=</span><span class="p">(</span><span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">))</span> <span class="c1">#compute the eclidean distance to the outside (border)</span>
+    <span class="n">dist_out</span> <span class="o">=</span> <span class="n">distance_transform_edt</span><span class="p">(</span><span class="o">~</span><span class="n">inside</span><span class="p">,</span> <span class="n">sampling</span><span class="o">=</span><span class="p">(</span><span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">))</span>
+    <span class="n">sdf</span> <span class="o">=</span> <span class="p">(</span><span class="n">dist_in</span> <span class="o">-</span> <span class="n">dist_out</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">subpixel_refine</span><span class="p">:</span>
+        <span class="n">pixel_size_map</span> <span class="o">=</span> <span class="n">_directional_pixel_size</span><span class="p">(</span><span class="n">sdf</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span>
+        <span class="n">boundary_band</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">sdf</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">pixel_size_map</span>
+        <span class="n">refined</span> <span class="o">=</span> <span class="p">(</span><span class="n">coverage</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="n">pixel_size_map</span>
+        <span class="n">sdf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">boundary_band</span><span class="p">,</span> <span class="n">refined</span><span class="p">,</span> <span class="n">sdf</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">sdf</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sdf_to_coverage</span><span class="p">(</span><span class="n">sdf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dy</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Reconstruct an antialiased fractional coverage raster from a signed</span>
+<span class="sd">    distance field, the inverse operation of ``_coverage_to_sdf``.</span>
+
+<span class="sd">    A locally boundary-orientation-aware ramp (see</span>
+<span class="sd">    ``_directional_pixel_size``) is used to convert distance-to-boundary</span>
+<span class="sd">    into partial coverage — sdf = 0 at the boundary -&gt; 0.5; sdf &gt;=</span>
+<span class="sd">    +half the local pixel footprint, fully inside -&gt; 1.0; sdf &lt;= -half</span>
+<span class="sd">    the local pixel footprint, fully outside -&gt; 0.0 — the standard</span>
+<span class="sd">    antialiasing reconstruction used for SDF-represented shapes,</span>
+<span class="sd">    generalised from a single isotropic pixel width to a per-pixel</span>
+<span class="sd">    directional one so anisotropic grids (dx != dy) get the correct</span>
+<span class="sd">    ramp width regardless of local boundary orientation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sdf      : np.ndarray, shape (ny, nx) — signed distance field, mm,</span>
+<span class="sd">        positive inside (see ``_coverage_to_sdf``).</span>
+<span class="sd">    dx, dy   : float — in-plane voxel spacing, mm.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray, float32, shape (ny, nx), values in [0, 1]</span>
+<span class="sd">    """</span>
+    <span class="n">pixel_size_map</span> <span class="o">=</span> <span class="n">_directional_pixel_size</span><span class="p">(</span><span class="n">sdf</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span>
+    <span class="n">coverage</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="n">sdf</span> <span class="o">/</span> <span class="n">pixel_size_map</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">coverage</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sdf_at_z</span><span class="p">(</span><span class="n">z</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sorted_z</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sdf_by_z</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Evaluate the piecewise-linear-in-z SDF field at an arbitrary depth z</span>
+<span class="sd">    (mm), by linearly interpolating between the two bracketing true</span>
+<span class="sd">    contour planes — the same rule ``get_fractional_mask_on_grid`` uses</span>
+<span class="sd">    per z-subsample, factored out so it can be called at exact segment</span>
+<span class="sd">    breakpoints instead of a fixed sub-sampling grid (see</span>
+<span class="sd">    ``_slab_avg_sdf_exact``).</span>
+
+<span class="sd">    Beyond the first/last contour plane the field is held constant at</span>
+<span class="sd">    that end slice's SDF (matching the half-slice end-cap convention</span>
+<span class="sd">    documented in ``get_fractional_mask_on_grid``) — trivially a</span>
+<span class="sd">    zero-slope linear segment, so it fits the same piecewise-linear model.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    z         : float — depth to evaluate, mm.</span>
+<span class="sd">    sorted_z  : np.ndarray — true contour z-positions, ascending, mm.</span>
+<span class="sd">    sdf_by_z  : list of np.ndarray, shape (ny, nx) — per-slice SDFs,</span>
+<span class="sd">        same order as ``sorted_z``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray, shape (ny, nx)</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sdf_by_z</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">z_min</span><span class="p">,</span> <span class="n">z_max</span> <span class="o">=</span> <span class="n">sorted_z</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sorted_z</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">z</span> <span class="o">&lt;=</span> <span class="n">z_min</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sdf_by_z</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">z</span> <span class="o">&gt;=</span> <span class="n">z_max</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sdf_by_z</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">j</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s2">"right"</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">j</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">z0_</span><span class="p">,</span> <span class="n">z1_</span> <span class="o">=</span> <span class="n">sorted_z</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">sorted_z</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">z1_</span> <span class="o">==</span> <span class="n">z0_</span> <span class="k">else</span> <span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">z0_</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">z1_</span> <span class="o">-</span> <span class="n">z0_</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">sdf_by_z</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">t</span> <span class="o">*</span> <span class="n">sdf_by_z</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_slab_avg_sdf_exact</span><span class="p">(</span><span class="n">z_lo</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">z_hi</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sorted_z</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                         <span class="n">sdf_by_z</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">z_extent_lo</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">z_extent_hi</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                         <span class="n">ny</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Exact (zero quadrature error) average of the piecewise-linear-in-z</span>
+<span class="sd">    SDF field over an output voxel's z-slab ``[z_lo, z_hi]``, replacing</span>
+<span class="sd">    finite-``Nz`` sub-sampling.</span>
+
+<span class="sd">    TECHNICAL JUSTIFICATION: by construction the SDF field is piecewise</span>
+<span class="sd">    LINEAR in z — linear between each pair of adjacent true contour</span>
+<span class="sd">    planes, constant beyond the first/last (see ``_sdf_at_z``). The exact</span>
+<span class="sd">    integral average of ANY linear segment over an interval is available</span>
+<span class="sd">    in closed form from just its two endpoint values (trapezoid rule,</span>
+<span class="sd">    exact for linear functions — no discretisation error regardless of</span>
+<span class="sd">    how coarse the output grid's dz is relative to the native contour</span>
+<span class="sd">    spacing, and regardless of how many true contour planes fall inside</span>
+<span class="sd">    one output voxel's z-extent). This replaces sampling ``Nz`` points on</span>
+<span class="sd">    a uniform sub-grid — which is only exact when the whole slab happens</span>
+<span class="sd">    to fall within a single linear segment, and otherwise carries</span>
+<span class="sd">    residual quadrature error from the slope discontinuity at each</span>
+<span class="sd">    interior contour plane — with a handful of *exact* evaluations at</span>
+<span class="sd">    the slab's clipped bounds plus every interior contour z.</span>
+
+<span class="sd">    The slab is also clipped to the structure's true (padded) z-extent</span>
+<span class="sd">    ``[z_extent_lo, z_extent_hi]``: outside that extent there is no</span>
+<span class="sd">    structure at all (coverage is exactly 0, not merely "unsampled"), so</span>
+<span class="sd">    a voxel whose z-range only partially overlaps the structure — e.g.</span>
+<span class="sd">    the ROI's very first/last output slice — has its covered-region</span>
+<span class="sd">    coverage scaled down by the overlap fraction, rather than reporting</span>
+<span class="sd">    the covered portion's coverage as if it applied to the whole voxel.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    z_lo, z_hi : float — output voxel's full z-extent, mm.</span>
+<span class="sd">    sorted_z   : np.ndarray — true contour z-positions, ascending, mm.</span>
+<span class="sd">    sdf_by_z   : list of np.ndarray, shape (ny, nx) — per-slice SDFs.</span>
+<span class="sd">    z_extent_lo, z_extent_hi : float — structure's padded true z-extent, mm.</span>
+<span class="sd">    ny, nx     : int — in-plane grid shape.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (avg_sdf_covered, overlap_frac) : (np.ndarray shape (ny, nx), float)</span>
+<span class="sd">        or None if ``[z_lo, z_hi]`` does not overlap the structure's</span>
+<span class="sd">        extent at all.</span>
+<span class="sd">    """</span>
+    <span class="n">lo</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">z_lo</span><span class="p">,</span> <span class="n">z_extent_lo</span><span class="p">)</span>
+    <span class="n">hi</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">z_hi</span><span class="p">,</span> <span class="n">z_extent_hi</span><span class="p">)</span>
+    <span class="n">total_len</span> <span class="o">=</span> <span class="n">z_hi</span> <span class="o">-</span> <span class="n">z_lo</span>
+
+    <span class="k">if</span> <span class="n">hi</span> <span class="o">&lt;=</span> <span class="n">lo</span> <span class="ow">or</span> <span class="n">total_len</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">interior</span> <span class="o">=</span> <span class="n">sorted_z</span><span class="p">[(</span><span class="n">sorted_z</span> <span class="o">&gt;</span> <span class="n">lo</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">sorted_z</span> <span class="o">&lt;</span> <span class="n">hi</span><span class="p">)]</span>
+    <span class="n">breakpoints</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="n">lo</span><span class="p">],</span> <span class="n">interior</span><span class="p">,</span> <span class="p">[</span><span class="n">hi</span><span class="p">]))</span>
+
+    <span class="n">acc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">breakpoints</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">breakpoints</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">breakpoints</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">seg_len</span> <span class="o">=</span> <span class="n">b</span> <span class="o">-</span> <span class="n">a</span>
+        <span class="k">if</span> <span class="n">seg_len</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">sdf_a</span> <span class="o">=</span> <span class="n">_sdf_at_z</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">sorted_z</span><span class="p">,</span> <span class="n">sdf_by_z</span><span class="p">)</span>
+        <span class="n">sdf_b</span> <span class="o">=</span> <span class="n">_sdf_at_z</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">sorted_z</span><span class="p">,</span> <span class="n">sdf_by_z</span><span class="p">)</span>
+        <span class="n">acc</span> <span class="o">+=</span> <span class="n">seg_len</span> <span class="o">*</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">sdf_a</span> <span class="o">+</span> <span class="n">sdf_b</span><span class="p">)</span>   <span class="c1"># exact trapezoid: average of a linear segment</span>
+
+    <span class="n">covered_len</span> <span class="o">=</span> <span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span>
+    <span class="n">avg_sdf_covered</span> <span class="o">=</span> <span class="n">acc</span> <span class="o">/</span> <span class="n">covered_len</span>
+    <span class="n">overlap_frac</span> <span class="o">=</span> <span class="n">covered_len</span> <span class="o">/</span> <span class="n">total_len</span>
+    <span class="k">return</span> <span class="n">avg_sdf_covered</span><span class="p">,</span> <span class="n">overlap_frac</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_adaptive_supersample</span><span class="p">(</span><span class="n">contours</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">base_N</span><span class="p">,</span> <span class="n">max_N</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">target_subsamples</span><span class="o">=</span><span class="mi">16</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Scale the in-plane supersampling factor up for small structures.</span>
+
+<span class="sd">    TECHNICAL JUSTIFICATION: a fixed N gives a fixed number of sub-points</span>
+<span class="sd">    (N²) per OUTPUT VOXEL, regardless of how many voxels the structure</span>
+<span class="sd">    itself spans. A 40-voxel-wide PTV and a 2-voxel-wide lens both get</span>
+<span class="sd">    the same N=4 (~6% accuracy, per the original docstring) even though</span>
+<span class="sd">    the lens's boundary curvature is resolved by only ~8 voxels total —</span>
+<span class="sd">    the actual accuracy-limiting factor is sub-samples PER STRUCTURE</span>
+<span class="sd">    WIDTH, not sub-samples per voxel. This scales N so the number of</span>
+<span class="sd">    sub-samples spanning the structure's narrowest in-plane bounding-box</span>
+<span class="sd">    dimension stays roughly constant (~target_subsamples) whether the</span>
+<span class="sd">    structure is a PTV or a 3-voxel-wide serial OAR, bounded by max_N to</span>
+<span class="sd">    cap the compute cost.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    contours : list of np.ndarray, shape (M, 3)</span>
+<span class="sd">        All raw contour point arrays for the ROI (x, y, z in mm).</span>
+<span class="sd">    dx, dy   : float — in-plane voxel spacing, mm.</span>
+<span class="sd">    base_N   : int — minimum/default supersampling factor (large structures).</span>
+<span class="sd">    max_N    : int — hard cap on the supersampling factor.</span>
+<span class="sd">    target_subsamples : int — desired sub-sample count across the</span>
+<span class="sd">        structure's narrowest bounding-box dimension.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        Effective supersampling factor N to use for this structure.</span>
+<span class="sd">    """</span>
+    <span class="n">all_xy</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">c</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">contours</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">bbox_w</span>  <span class="o">=</span> <span class="n">all_xy</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">all_xy</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="n">bbox_h</span>  <span class="o">=</span> <span class="n">all_xy</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">all_xy</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="n">bbox_vox</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">bbox_w</span> <span class="o">/</span> <span class="n">dx</span><span class="p">,</span> <span class="n">bbox_h</span> <span class="o">/</span> <span class="n">dy</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bbox_vox</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">base_N</span>
+    <span class="n">n_req</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">target_subsamples</span> <span class="o">/</span> <span class="n">bbox_vox</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">n_req</span><span class="p">,</span> <span class="n">base_N</span><span class="p">,</span> <span class="n">max_N</span><span class="p">))</span>
+
+
+
+<div class="viewcode-block" id="get_fractional_mask_on_grid">
+<a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.get_fractional_mask_on_grid">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_fractional_mask_on_grid</span><span class="p">(</span><span class="n">struct_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                                <span class="n">rtstruct_ds</span><span class="p">,</span>
+                                <span class="n">origin</span><span class="p">:</span>      <span class="nb">list</span><span class="p">,</span>
+                                <span class="n">spacing</span><span class="p">:</span>     <span class="nb">list</span><span class="p">,</span>
+                                <span class="n">shape</span><span class="p">:</span>       <span class="nb">tuple</span><span class="p">,</span>
+                                <span class="n">z_positions</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                                <span class="n">supersample</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+                                <span class="n">max_supersample</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Compute a fractional voxel membership mask on an arbitrary grid.</span>
+
+<span class="sd">    Each voxel receives a value in [0,1] — the fraction of its physical</span>
+<span class="sd">    VOLUME (in-plane AND through-slice) that lies inside the RT Struct</span>
+<span class="sd">    contour. In-plane coverage is estimated by supersampling</span>
+<span class="sd">    (adaptive N² sub-points per voxel, see ``_adaptive_supersample``).</span>
+<span class="sd">    Through-slice (z) coverage is estimated by treating the true contour</span>
+<span class="sd">    z-positions as control planes and interpolating the STRUCTURE'S</span>
+<span class="sd">    BOUNDARY GEOMETRY — not its raw in-plane coverage/opacity — between</span>
+<span class="sd">    the bracketing contour slices across each output voxel's z-extent.</span>
+<span class="sd">    This is done via shape-based interpolation: each contour slice's</span>
+<span class="sd">    fractional coverage raster is first converted to a 2-D signed</span>
+<span class="sd">    distance field (SDF, see ``_coverage_to_sdf``); the per-voxel z-slab</span>
+<span class="sd">    is then integrated EXACTLY in SDF space (``_slab_avg_sdf_exact`` —</span>
+<span class="sd">    see that function's docstring, and NOTE below), not by sub-sampling;</span>
+<span class="sd">    and the resulting averaged SDF is converted back to a fractional</span>
+<span class="sd">    coverage raster only once, at the end (``_sdf_to_coverage``).</span>
+
+<span class="sd">    NOTE on the z-integration being exact rather than sub-sampled: the</span>
+<span class="sd">    SDF field is piecewise LINEAR in z by construction (linear between</span>
+<span class="sd">    each pair of adjacent true contour planes, constant beyond the</span>
+<span class="sd">    first/last). The integral average of a piecewise-linear function</span>
+<span class="sd">    over any interval is available in closed form from its endpoint</span>
+<span class="sd">    values at each linear segment (trapezoid rule, exact for linear</span>
+<span class="sd">    functions) — so no ``Nz`` sub-sampling parameter is needed, and there</span>
+<span class="sd">    is zero z-quadrature error regardless of how coarse the output</span>
+<span class="sd">    grid's dz is relative to the native contour spacing, or how many true</span>
+<span class="sd">    contour planes fall inside one output voxel's z-slab. (A generic</span>
+<span class="sd">    fixed-``Nz`` sub-sampling grid — the previous approach — is only</span>
+<span class="sd">    exact when a slab happens to fall entirely within one linear segment;</span>
+<span class="sd">    it carries residual error whenever a slab straddles an interior</span>
+<span class="sd">    contour plane, which is exactly the case where the output grid is</span>
+<span class="sd">    coarser than the contour spacing.) The exact integration also</span>
+<span class="sd">    correctly handles voxels whose z-extent only PARTIALLY overlaps the</span>
+<span class="sd">    structure's true (padded) extent — e.g. the ROI's first/last output</span>
+<span class="sd">    slice — by scaling the covered region's coverage down by the actual</span>
+<span class="sd">    overlap fraction, rather than reporting the covered portion's</span>
+<span class="sd">    coverage as if it applied to the voxel's full z-extent.</span>
+
+<span class="sd">    TECHNICAL JUSTIFICATION for the z-interpolation (this is the main</span>
+<span class="sd">    change from the previous version): contours were previously snapped</span>
+<span class="sd">    to the single nearest output z-index, so an output voxel's z-extent</span>
+<span class="sd">    was always either "fully in" or "fully out" of the structure — no</span>
+<span class="sd">    different, in the z direction, from a hard binary mask. This</span>
+<span class="sd">    reproduces the same staircase/quantization error along the</span>
+<span class="sd">    cranial-caudal axis that fractional in-plane weighting was written to</span>
+<span class="sd">    avoid in-plane, and it gets worse whenever the analysis grid's z</span>
+<span class="sd">    spacing does not match the original contour spacing (e.g. resampling</span>
+<span class="sd">    dose/LET/mask onto a coarser custom grid).</span>
+
+<span class="sd">    A direct linear blend of the raw coverage rasters (alpha</span>
+<span class="sd">    cross-dissolving) was tried first, but that interpolates OPACITY, not</span>
+<span class="sd">    GEOMETRY: wherever the cross-section shifts, rotates, or changes size</span>
+<span class="sd">    between two contour planes (tapering structures, branching anatomy,</span>
+<span class="sd">    slightly mis-registered slices), an opacity blend produces a faint,</span>
+<span class="sd">    eroded double-exposure of both shapes rather than a smoothly moving</span>
+<span class="sd">    boundary, understating volume in exactly the transition regions where</span>
+<span class="sd">    accuracy matters most. Interpolating signed distance fields instead</span>
+<span class="sd">    — the classical "shape-based interpolation" approach (Raya &amp; Udupa,</span>
+<span class="sd">    1990) — averages DISTANCE TO THE BOUNDARY rather than opacity, so the</span>
+<span class="sd">    reconstructed boundary at any intermediate depth is the correct</span>
+<span class="sd">    (piecewise-linear-in-distance) locus of points equidistant between</span>
+<span class="sd">    the two true contours; this is the discretised equivalent of lofting</span>
+<span class="sd">    a triangulated surface between them, without an opacity blend's</span>
+<span class="sd">    tendency to thin the structure out.</span>
+
+<span class="sd">    Outside the structure's own z-extent, the boundary geometry (i.e. the</span>
+<span class="sd">    SDF, hence coverage) is held constant at the nearest edge slice's</span>
+<span class="sd">    value (rather than tapering to zero), because RTSTRUCT contours</span>
+<span class="sd">    conventionally represent the slice-thickness worth of structure</span>
+<span class="sd">    centred on each contour, so the ROI is assumed to occupy a</span>
+<span class="sd">    half-slice-thickness beyond the first/last contour plane, not to end</span>
+<span class="sd">    exactly on it.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    struct_name     : str</span>
+<span class="sd">    rtstruct_ds     : pydicom Dataset</span>
+<span class="sd">    origin          : [x0, y0, z0]  mm</span>
+<span class="sd">    spacing         : [dx, dy, dz]  mm</span>
+<span class="sd">    shape           : (nz, ny, nx)</span>
+<span class="sd">    z_positions     : 1-D array length nz</span>
+<span class="sd">    supersample     : baseline in-plane N (default 4). Scaled up</span>
+<span class="sd">                      per-structure by ``_adaptive_supersample``.</span>
+<span class="sd">    max_supersample : hard cap for the adaptive in-plane N.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    frac_mask : np.ndarray float32, shape (nz, ny, nx), values in [0, 1]</span>
+<span class="sd">    """</span>
+    <span class="n">name_to_roi</span><span class="p">,</span> <span class="n">roi_to_contours</span> <span class="o">=</span> <span class="n">_build_roi_maps</span><span class="p">(</span><span class="n">rtstruct_ds</span><span class="p">)</span>
+
+    <span class="n">key</span> <span class="o">=</span> <span class="n">struct_name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">name_to_roi</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Structure '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">' not found in RT Struct. "</span>
+            <span class="sa">f</span><span class="s2">"Available: </span><span class="si">{</span><span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">ROIName</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">item</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">rtstruct_ds</span><span class="o">.</span><span class="n">StructureSetROISequence</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+    <span class="n">roi_number</span> <span class="o">=</span> <span class="n">name_to_roi</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    <span class="n">contours</span>   <span class="o">=</span> <span class="n">roi_to_contours</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">roi_number</span><span class="p">,</span> <span class="p">[])</span>
+
     <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">z0</span> <span class="o">=</span> <span class="n">origin</span>
     <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span>  <span class="o">=</span> <span class="n">spacing</span>
     <span class="n">nz</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span>  <span class="o">=</span> <span class="n">shape</span>
- 
+
     <span class="n">frac_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
- 
+
     <span class="k">if</span> <span class="ow">not</span> <span class="n">contours</span><span class="p">:</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No contour data for '</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">'."</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">frac_mask</span>
- 
-    <span class="n">N</span>  <span class="o">=</span> <span class="n">supersample</span>
 
-    <span class="c1"># Group contours by slice</span>
-    <span class="n">slice_contours</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-    <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="n">N</span>  <span class="o">=</span> <span class="n">_adaptive_supersample</span><span class="p">(</span><span class="n">contours</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">base_N</span><span class="o">=</span><span class="n">supersample</span><span class="p">,</span> <span class="n">max_N</span><span class="o">=</span><span class="n">max_supersample</span><span class="p">)</span>
+
+    <span class="c1"># ---- group contours by their TRUE z (mm), NOT by nearest grid index ----</span>
+    <span class="c1"># (rounded to 3 decimals only to merge floating-point duplicates of the</span>
+    <span class="c1"># same physical slice; this is not a grid-snapping step)</span>
+    <span class="n">slice_polys_by_z</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">pts</span> <span class="ow">in</span> <span class="n">contours</span><span class="p">:</span>
-        <span class="n">n</span><span class="o">+=</span><span class="mi">1</span>
-        <span class="n">z_val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">pts</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
-        <span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z_positions</span> <span class="o">-</span> <span class="n">z_val</span><span class="p">)</span>
-        <span class="n">z_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">diffs</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">diffs</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">dz</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">:</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Contour z=</span><span class="si">{</span><span class="n">z_val</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm is </span><span class="si">{</span><span class="n">diffs</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm from nearest slice"</span><span class="p">)</span>
-        <span class="n">slice_contours</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">z_val</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">pts</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">slice_polys_by_z</span><span class="p">[</span><span class="n">z_val</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">])</span>
 
-    
-    <span class="k">for</span> <span class="n">z_idx</span><span class="p">,</span> <span class="n">slice_polys</span> <span class="ow">in</span> <span class="n">slice_contours</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">slice_polys</span><span class="p">:</span>
+    <span class="n">sorted_z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">slice_polys_by_z</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">gaps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">gaps</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">gaps</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">struct_name</span><span class="si">}</span><span class="s2">': contour spacing is irregular (max gap "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">gaps</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm vs median </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">gaps</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm) — "</span>
+                <span class="s2">"possible missing slice(s); linear z-interpolation across a "</span>
+                <span class="s2">"large gap is a weaker approximation than across evenly "</span>
+                <span class="s2">"spaced contours."</span>
+            <span class="p">)</span>
+
+    <span class="c1"># rasterise in-plane coverage ONCE per true contour z (not per output slab)</span>
+    <span class="n">coverage_by_z</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">rasterize_slice_coverage</span><span class="p">(</span><span class="n">slice_polys_by_z</span><span class="p">[</span><span class="n">z</span><span class="p">],</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">sorted_z</span>
+    <span class="p">]</span>
+    <span class="c1"># ...and convert each slice's coverage raster to a signed distance field</span>
+    <span class="c1"># ONCE as well — z-interpolation below blends SDFs (geometry), not the</span>
+    <span class="c1"># raw coverage rasters (opacity); see docstring for why.</span>
+    <span class="n">sdf_by_z</span> <span class="o">=</span> <span class="p">[</span><span class="n">_coverage_to_sdf</span><span class="p">(</span><span class="n">cov</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span> <span class="k">for</span> <span class="n">cov</span> <span class="ow">in</span> <span class="n">coverage_by_z</span><span class="p">]</span>
+    <span class="n">z_min</span><span class="p">,</span> <span class="n">z_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># Physically bounded end-cap extension: each contour conventionally</span>
+    <span class="c1"># represents the half-slice-thickness of structure centred on it, using</span>
+    <span class="c1"># the LOCAL native contour spacing at that end — NOT the output grid's</span>
+    <span class="c1"># dz. Using the output dz here (or clipping every sample unconditionally</span>
+    <span class="c1"># into [z_min, z_max]) over-extends the ROI whenever the analysis grid</span>
+    <span class="c1"># is coarser than the original contour spacing, e.g. resampling a plan</span>
+    <span class="c1"># contoured on a 1-2mm CT onto a 3mm dose/LET grid: an end-cap output</span>
+    <span class="c1"># voxel would incorrectly get 100% coverage across its FULL (coarse)</span>
+    <span class="c1"># thickness instead of just the true ~0.5-1mm the structure actually</span>
+    <span class="c1"># extends past the last contour, inflating volume at both structure poles.</span>
+    <span class="n">pad_lo</span> <span class="o">=</span> <span class="p">(</span><span class="n">sorted_z</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">sorted_z</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">dz</span> <span class="o">/</span> <span class="mf">2.0</span>
+    <span class="n">pad_hi</span> <span class="o">=</span> <span class="p">(</span><span class="n">sorted_z</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">sorted_z</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_z</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">dz</span> <span class="o">/</span> <span class="mf">2.0</span>
+    <span class="n">z_extent_lo</span><span class="p">,</span> <span class="n">z_extent_hi</span> <span class="o">=</span> <span class="n">z_min</span> <span class="o">-</span> <span class="n">pad_lo</span><span class="p">,</span> <span class="n">z_max</span> <span class="o">+</span> <span class="n">pad_hi</span>
+
+    <span class="c1"># ---- resample through z with linear interpolation between contour planes ----</span>
+    <span class="k">for</span> <span class="n">z_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nz</span><span class="p">):</span>
+        <span class="n">z_center</span> <span class="o">=</span> <span class="n">z_positions</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span>
+        <span class="n">z_lo</span> <span class="o">=</span> <span class="n">z_center</span> <span class="o">-</span> <span class="n">dz</span> <span class="o">/</span> <span class="mf">2.0</span>
+        <span class="n">z_hi</span> <span class="o">=</span> <span class="n">z_center</span> <span class="o">+</span> <span class="n">dz</span> <span class="o">/</span> <span class="mf">2.0</span>
+
+        <span class="c1"># skip output slabs entirely outside the (padded) structure extent</span>
+        <span class="k">if</span> <span class="n">z_hi</span> <span class="o">&lt;</span> <span class="n">z_extent_lo</span> <span class="ow">or</span> <span class="n">z_lo</span> <span class="o">&gt;</span> <span class="n">z_extent_hi</span><span class="p">:</span>
             <span class="k">continue</span>
-    
-        <span class="n">areas</span> <span class="o">=</span> <span class="p">[</span><span class="nb">abs</span><span class="p">(</span><span class="n">contour_area_signed</span><span class="p">(</span><span class="n">p</span><span class="p">))</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">slice_polys</span><span class="p">]</span>
-        <span class="n">slice_polys</span> <span class="o">=</span> <span class="p">[</span><span class="n">slice_polys</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">areas</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
-    
-        <span class="n">slice_fraction</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-    
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">poly_xy</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">slice_polys</span><span class="p">):</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">poly_xy</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="k">continue</span>
-    
-            <span class="n">smooth_xy</span> <span class="o">=</span> <span class="n">poly_xy</span> <span class="c1">#smooth_contour(poly_xy) #Avoid soothing, no gain in accuracy compared to RayStation.</span>
-            
-            <span class="c1"># Hole detections</span>
-            <span class="n">is_hole</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span><span class="c1"># assume the biggest area as non-hole</span>
-                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span><span class="p">):</span> <span class="c1"># handling holes if holes do not have any island inside. </span>
-                    <span class="n">outer_path</span> <span class="o">=</span> <span class="n">MplPath</span><span class="p">(</span><span class="n">slice_polys</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">closed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> 
-                    <span class="n">test_pts</span>   <span class="o">=</span> <span class="n">poly_xy</span><span class="p">[::</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">poly_xy</span><span class="p">)</span> <span class="o">//</span> <span class="mi">5</span><span class="p">)]</span>
-                    <span class="k">if</span> <span class="n">outer_path</span><span class="o">.</span><span class="n">contains_points</span><span class="p">(</span><span class="n">test_pts</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">:</span>
-                        <span class="n">is_hole</span> <span class="o">=</span> <span class="kc">True</span>
-                        <span class="k">break</span>
-           
-            <span class="n">fraction</span> <span class="o">=</span> <span class="n">rasterize_supersampled</span><span class="p">(</span><span class="n">smooth_xy</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
-    
-            <span class="k">if</span> <span class="n">is_hole</span><span class="p">:</span>
-                <span class="n">slice_fraction</span> <span class="o">-=</span> <span class="n">fraction</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">slice_fraction</span> <span class="o">+=</span> <span class="n">fraction</span>
-    
-        <span class="n">frac_mask</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">slice_fraction</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="c1">#clipping shouldn#t change anything, it should be already in [0-1]</span>
-        
-        
+
+        <span class="c1"># Exact (closed-form) z-integration of the piecewise-linear-in-z</span>
+        <span class="c1"># SDF field over this voxel's slab — see ``_slab_avg_sdf_exact``</span>
+        <span class="c1"># and the docstring NOTE above for why this replaces sub-sampling.</span>
+        <span class="c1"># Also handles voxels whose z-extent only partially overlaps the</span>
+        <span class="c1"># structure's true (padded) extent, via ``overlap_frac``.</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">_slab_avg_sdf_exact</span><span class="p">(</span><span class="n">z_lo</span><span class="p">,</span> <span class="n">z_hi</span><span class="p">,</span> <span class="n">sorted_z</span><span class="p">,</span> <span class="n">sdf_by_z</span><span class="p">,</span>
+                                      <span class="n">z_extent_lo</span><span class="p">,</span> <span class="n">z_extent_hi</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>  <span class="c1"># no overlap with the structure's extent after all</span>
+        <span class="n">avg_sdf_covered</span><span class="p">,</span> <span class="n">overlap_frac</span> <span class="o">=</span> <span class="n">result</span>
+
+        <span class="n">coverage_covered</span> <span class="o">=</span> <span class="n">_sdf_to_coverage</span><span class="p">(</span><span class="n">avg_sdf_covered</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span>
+        <span class="n">frac_mask</span><span class="p">[</span><span class="n">z_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">coverage_covered</span> <span class="o">*</span> <span class="n">overlap_frac</span>
+
     <span class="k">return</span> <span class="n">frac_mask</span></div>
 
 
+<div class="viewcode-block" id="save_nifti">
+<a class="viewcode-back" href="../../api/io.html#PyPlanAnalysis.io.save_nifti">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_nifti</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">ref_img</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">sitk</span><span class="o">.</span><span class="n">GetImageFromArray</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">"float32"</span><span class="p">))</span>
+    <span class="n">img</span><span class="o">.</span><span class="n">CopyInformation</span><span class="p">(</span><span class="n">ref_img</span><span class="p">)</span>
+    <span class="n">sitk</span><span class="o">.</span><span class="n">WriteImage</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span></div>
 
 </pre></div>
         </article>

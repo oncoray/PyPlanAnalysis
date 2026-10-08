@@ -253,7 +253,7 @@ per-structure radiobiological parameter configuration.</p>
 </section>
 <dl class="py class">
 <dt class="sig sig-object py" id="PyPlanAnalysis.metrics.RadiobiologyConfig">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">RadiobiologyConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha_beta_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_beta_default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geud_a_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geud_a_default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/metrics.html#RadiobiologyConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.metrics.RadiobiologyConfig" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">RadiobiologyConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">structure_priority</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_beta_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_beta_default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geud_a_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geud_a_default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/metrics.html#RadiobiologyConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.metrics.RadiobiologyConfig" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Per-structure radiobiological parameters.</p>
 <dl class="field-list simple">
@@ -265,9 +265,15 @@ Values are α/β [Gy].</p></li>
 <li><p><strong>geud_a_map</strong> (<em>dict</em>) – Keys are substrings of structure names.
 Values are gEUD parameter a.</p></li>
 <li><p><strong>geud_a_default</strong> (<em>float</em>) – Fallback gEUD a.</p></li>
+<li><p><strong>structure_priority</strong> (<em>dict</em>)</p></li>
 </ul>
 </dd>
 </dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyPlanAnalysis.metrics.RadiobiologyConfig.structure_priority">
+<span class="sig-name descname"><span class="pre">structure_priority</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></span><a class="headerlink" href="#PyPlanAnalysis.metrics.RadiobiologyConfig.structure_priority" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="PyPlanAnalysis.metrics.RadiobiologyConfig.alpha_beta_map">
 <span class="sig-name descname"><span class="pre">alpha_beta_map</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></span><a class="headerlink" href="#PyPlanAnalysis.metrics.RadiobiologyConfig.alpha_beta_map" title="Link to this definition">¶</a></dt>
@@ -397,7 +403,7 @@ Values are gEUD parameter a.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="PyPlanAnalysis.metrics.compute_dvh_metrics">
-<span class="sig-name descname"><span class="pre">compute_dvh_metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dose_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">voxel_vol_cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric_cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geud_a</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_fractions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/metrics.html#compute_dvh_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.metrics.compute_dvh_metrics" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">compute_dvh_metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dose_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">voxel_vol_cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric_cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geud_a</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_fractions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_voxel_fract</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/metrics.html#compute_dvh_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.metrics.compute_dvh_metrics" title="Link to this definition">¶</a></dt>
 <dd><p>Compute all requested DVH metrics for a 1-D voxel dose array.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -411,6 +417,7 @@ Values are gEUD parameter a.</p></li>
 <li><p><strong>weights</strong> (<em>optional 1-D array</em><em> of </em><em>fractional volumes</em><em> [</em><em>0</em><em>,</em><em>1</em><em>] </em><em>per voxel.</em>) – If None, binary mask assumed (all weights = 1).
 When provided, all metrics are volume-weighted.</p></li>
 <li><p><strong>n_fractions</strong> (<em>int</em>)</p></li>
+<li><p><strong>min_voxel_fract</strong> (<em>float</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -424,7 +431,7 @@ When provided, all metrics are volume-weighted.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="PyPlanAnalysis.metrics.compute_let_metrics">
-<span class="sig-name descname"><span class="pre">compute_let_metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">let_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dose_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lx_points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'LET'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/metrics.html#compute_let_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.metrics.compute_let_metrics" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">compute_let_metrics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">let_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dose_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lx_points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'LET'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_voxel_fract</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/metrics.html#compute_let_metrics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.metrics.compute_let_metrics" title="Link to this definition">¶</a></dt>
 <dd><p>Compute LET summary metrics for a structure.</p>
 <p>Lx% is defined exactly like Dx% but on the LET distribution:
 the minimum LETd in the highest-LET x% of the structure volume.</p>
@@ -436,6 +443,7 @@ the minimum LETd in the highest-LET x% of the structure volume.</p>
 <li><p><strong>lx_points</strong> (<em>list</em><em> of </em><em>x values for Lx%</em>)</p></li>
 <li><p><strong>label</strong> (<em>prefix for metric names</em>)</p></li>
 <li><p><strong>weights</strong> (<em>optional fractional volumes</em><em> [</em><em>0</em><em>,</em><em>1</em><em>] </em><em>per voxel</em>)</p></li>
+<li><p><strong>min_voxel_fract</strong> (<em>float</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -476,27 +484,29 @@ its fractional volume rather than 1 full voxel.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="PyPlanAnalysis.metrics.compute_2d_histogram">
-<span class="sig-name descname"><span class="pre">compute_2d_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dose_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">let_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dose_bins</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">let_bins</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/metrics.html#compute_2d_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.metrics.compute_2d_histogram" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">compute_2d_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dose_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">let_voxels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dose_bins</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">let_bins</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/PyPlanAnalysis/metrics.html#compute_2d_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyPlanAnalysis.metrics.compute_2d_histogram" title="Link to this definition">¶</a></dt>
 <dd><p>Compute 2-D dose-LET volume histogram (DLVH).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></span></p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><ul class="simple">
-<li><p><strong>H</strong> (<em>2-D array (dose_bins × let_bins), volume fractions</em>)</p></li>
-<li><p><strong>dose_edges</strong> (<em>dose bin edges</em>)</p></li>
-<li><p><strong>let_edges</strong> (<em>LET bin edges</em>)</p></li>
-</ul>
-</p>
-</dd>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
+<li><p><strong>weights</strong> (<em>optional 1-D array</em><em> of </em><em>fractional volumes</em><em> [</em><em>0</em><em>,</em><em>1</em><em>] </em><em>per voxel.</em>) – Passing weights through makes DLVH use the
+same partial-volume accounting as the rest of the pipeline.</p></li>
 <li><p><strong>dose_voxels</strong> (<em>ndarray</em>)</p></li>
 <li><p><strong>let_voxels</strong> (<em>ndarray</em>)</p></li>
 <li><p><strong>dose_bins</strong> (<em>int</em>)</p></li>
 <li><p><strong>let_bins</strong> (<em>int</em>)</p></li>
 </ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>H</strong> (<em>2-D array (dose_bins × let_bins), volume fractions</em>)</p></li>
+<li><p><strong>dose_edges</strong> (<em>dose bin edges</em>)</p></li>
+<li><p><strong>let_edges</strong> (<em>LET bin edges</em>)</p></li>
+</ul>
+</p>
 </dd>
 </dl>
 </dd></dl>
@@ -561,6 +571,7 @@ its fractional volume rather than 1 full voxel.</p>
 <li><a class="reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">PyPlanAnalysis.metrics</span></code></a><ul>
 <li><a class="reference internal" href="#module-PyPlanAnalysis.metrics">PyPlanAnalysis.metrics</a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.metrics.RadiobiologyConfig"><code class="docutils literal notranslate"><span class="pre">RadiobiologyConfig</span></code></a><ul>
+<li><a class="reference internal" href="#PyPlanAnalysis.metrics.RadiobiologyConfig.structure_priority"><code class="docutils literal notranslate"><span class="pre">RadiobiologyConfig.structure_priority</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.metrics.RadiobiologyConfig.alpha_beta_map"><code class="docutils literal notranslate"><span class="pre">RadiobiologyConfig.alpha_beta_map</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.metrics.RadiobiologyConfig.alpha_beta_default"><code class="docutils literal notranslate"><span class="pre">RadiobiologyConfig.alpha_beta_default</span></code></a></li>
 <li><a class="reference internal" href="#PyPlanAnalysis.metrics.RadiobiologyConfig.geud_a_map"><code class="docutils literal notranslate"><span class="pre">RadiobiologyConfig.geud_a_map</span></code></a></li>
