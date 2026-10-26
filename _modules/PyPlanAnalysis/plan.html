@@ -422,7 +422,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_dose_arr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dose_ds</span> <span class="o">=</span> <span class="n">load_dose_grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dose_file</span><span class="p">)</span>
             <span class="n">dose_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dose_ds</span><span class="p">,</span> <span class="s2">"DoseType"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
             
-            <span class="k">if</span> <span class="n">dose_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"EFFECTIVE"</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">dose_type</span> <span class="o">==</span> <span class="s2">"EFFECTIVE"</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_is_scaling_performed_from_RBEw_dose</span>  <span class="o">=</span> <span class="kc">True</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_dose_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dose_arr</span><span class="o">/</span><span class="mf">1.1</span>  
             
@@ -823,6 +823,7 @@
                                 <span class="n">grid_spacing</span><span class="p">,</span>
                                 <span class="n">grid_shape</span><span class="p">,</span>
                                 <span class="n">grid_z_positions</span><span class="p">,</span>
+                                <span class="n">use_fractional</span><span class="p">,</span>
                                 <span class="n">supersample</span> <span class="o">=</span> <span class="n">supersample</span><span class="p">,</span>
                                 <span class="n">max_supersample</span> <span class="o">=</span> <span class="n">max_supersample</span><span class="p">)</span>
                 

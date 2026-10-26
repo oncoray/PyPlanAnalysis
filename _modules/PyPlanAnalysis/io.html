@@ -412,9 +412,9 @@
             <span class="n">is_let</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"LET"</span> <span class="ow">in</span> <span class="n">label</span> <span class="ow">or</span> <span class="s2">"LET"</span> <span class="ow">in</span> <span class="n">fname</span> <span class="ow">or</span> <span class="n">dose_type</span> <span class="o">==</span> <span class="s2">"LET"</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">is_let</span><span class="p">:</span>
                 <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">"LET"</span>
-            <span class="k">elif</span> <span class="n">dose_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"PHYSICAL"</span><span class="p">):</span>
+            <span class="k">elif</span> <span class="n">dose_type</span> <span class="o">==</span> <span class="s2">"PHYSICAL"</span><span class="p">:</span>
                 <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">"PHYSICAL"</span>
-            <span class="k">elif</span> <span class="n">dose_type</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"EFFECTIVE"</span><span class="p">):</span>
+            <span class="k">elif</span> <span class="n">dose_type</span> <span class="o">==</span> <span class="s2">"EFFECTIVE"</span><span class="p">:</span>
                 <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">"EFFECTIVE"</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">dose_kind</span> <span class="o">=</span> <span class="s2">"UNKNOWN"</span>
