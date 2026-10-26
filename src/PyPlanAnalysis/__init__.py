@@ -7,7 +7,7 @@ full usage details.
 """
  
 from .plan    import PatientPlan, AnalysisResults, vRBEResults
-from .rbe     import RBEConfig
+from .rbe     import RBEConfig, compute_rbe_dose
 from .metrics import MetricConfig, RadiobiologyConfig
 from .NTCP    import NTCPConfig
  
@@ -16,6 +16,7 @@ __all__ = [
     "AnalysisResults",
     "vRBEResults",    
     "RBEConfig",   
+    "compute_rbe_dose",
     "MetricConfig",
     "RadiobiologyConfig",
     "NTCPConfig"

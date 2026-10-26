@@ -174,9 +174,9 @@ def _collect_candidates(folder: Path, rad_type: str):
             is_let = ("LET" in label or "LET" in fname or dose_type == "LET")
             if is_let:
                 dose_kind = "LET"
-            elif dose_type in ("PHYSICAL"):
+            elif dose_type == "PHYSICAL":
                 dose_kind = "PHYSICAL"
-            elif dose_type in ("EFFECTIVE"):
+            elif dose_type == "EFFECTIVE":
                 dose_kind = "EFFECTIVE"
             else:
                 dose_kind = "UNKNOWN"

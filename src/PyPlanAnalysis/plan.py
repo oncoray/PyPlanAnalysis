@@ -177,7 +177,7 @@ class PatientPlan:
             self._dose_arr, self._dose_ds = load_dose_grid(self.dose_file)
             dose_type = getattr(self._dose_ds, "DoseType", "").upper()
             
-            if dose_type in ("EFFECTIVE"):
+            if dose_type == "EFFECTIVE":
                 self._is_scaling_performed_from_RBEw_dose  = True
                 self._dose_arr = self._dose_arr/1.1  
             
@@ -566,6 +566,7 @@ class PatientPlan:
                                 grid_spacing,
                                 grid_shape,
                                 grid_z_positions,
+                                use_fractional,
                                 supersample = supersample,
                                 max_supersample = max_supersample)
                 

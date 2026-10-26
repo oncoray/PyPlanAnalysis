@@ -186,7 +186,7 @@ def compute_rbe_dose(dose_phys: np.ndarray,
     dose_phys  : physical dose array [Gy]
     let_d      : LETd array [keV/µm], same shape as dose_phys
     n_fractions: int (not needed for linear)
-    alpha_beta : α/β ratio [Gy] for this structure(not needed for linear)
+    alpha_beta : α/β ratio [Gy] for this structure(not needed for linear), both int and array (numpy)
     model      : one of "linear","mcnamara", "wedenberg", "carabe"
 
     Returns
