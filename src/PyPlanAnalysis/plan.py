@@ -62,7 +62,8 @@ class PatientPlan:
                  rtstruct       : Union[str, Path, None] = None,
                  CT_folder_path : Union[str, Path, None] = None,
                  n_fractions    : int  | None = None):
-    
+        
+        self._dose_label = None 
         self.plan_file   = Path(plan_file)      if plan_file      else None
         self.dose_file   = Path(dose_file)      if dose_file      else None
         self.let_file    = Path(let_file)       if let_file       else None
@@ -97,6 +98,43 @@ class PatientPlan:
         self._CT_loaded      = False
         
     # ----------------------------------------------------------
+    @classmethod
+    def from_array(cls,
+                   dose_array     : np.ndarray,
+                   dose_reference : Union[str, Path],   # any session RTDOSE on the same grid
+                   rtstruct       : Union[str, Path],
+                   n_fractions    : int,                # TOTAL over all sessions
+                   is_rbe         : str | None = None,  # e.g. "mcnamara"; None = physical dose
+                   let_array      : np.ndarray | None = None,
+                   CT_folder_path : Union[str, Path, None] = None,
+                   patient_id     : str | None = None) -> "PatientPlan":
+        
+        """Build a PatientPlan from arrays instead of dose/LET files."""
+        if n_fractions is None:
+            raise ValueError("n_fractions (total over all sessions) is required.")
+    
+        ref_ds   = pydicom.dcmread(str(dose_reference), stop_before_pixels=True, force=True)
+        expected = (int(ref_ds.NumberOfFrames), int(ref_ds.Rows), int(ref_ds.Columns))
+        for name, arr in (("dose_array", dose_array), ("let_array", let_array)):
+            if arr is not None and tuple(arr.shape) != expected:
+                raise ValueError(
+                    f"{name} shape {tuple(arr.shape)} does not match the reference "
+                    f"grid {expected}. The array must be on the reference RTDOSE grid "
+                    "(not resampled to CT / a custom grid).")
+    
+        plan = cls(patient_id=patient_id or getattr(ref_ds, "PatientID", "UNKNOWN"),
+                   rtstruct=rtstruct, CT_folder_path=CT_folder_path,
+                   n_fractions=n_fractions)
+    
+        plan._dose_arr   = np.asarray(dose_array, dtype=np.float64)
+        plan._dose_ds    = ref_ds
+        plan._let_arr    = None if let_array is None else np.asarray(let_array, dtype=np.float64)
+        plan._let_ds     = None if let_array is None else ref_ds
+        plan._dose_label = is_rbe or None
+    
+        plan.load()   # existing code: reads RTSTRUCT + CT, leaves the seeded arrays alone
+        return plan
+
     @classmethod
     def from_folder(cls,
                     folder: Union[str, Path],
@@ -445,6 +483,9 @@ class PatientPlan:
         A container holding the 3D vRBE dose array, the α/β map, grid geometry,
         and a to_nii() method to save both volumes as NIfTI files.
         """
+        if self._dose_label is not None:
+            raise ValueError(f"Dose is already RBE-weighted ('{self._dose_label}'); "
+                             "compute_vRBE would apply RBE twice.")
         metric_cfg   = metric_cfg   or MetricConfig()
         radiobio_cfg = radiobio_cfg or RadiobiologyConfig()
 
@@ -611,62 +652,72 @@ class PatientPlan:
             dvh_data[struct_name] = {}
            
             # ---- Physical dose ----
-            
             if dose_arr is not None:
-                row.update(compute_dvh_metrics(dose_vox, vol_cc, "Phys",
-                                               metric_cfg, ab, geud_a,
-                                               weights=weights,n_fractions = self.n_fractions))
-                
-                edges, cum = compute_cumulative_histogram(dose_vox,
-                                                          metric_cfg.dvh_bins,
-                                                          weights=weights)
-                dvh_data[struct_name]["Phys"] = (edges, cum)
-                # ---- Fixed RBE ----
-                
-                dose_fixed = rbe_fixed(dose_vox, rbe_cfg.fixed_rbe)
-                lbl_fixed  = f"RBE{rbe_cfg.fixed_rbe}"
-                row.update(compute_dvh_metrics(dose_fixed, vol_cc,  lbl_fixed ,
-                                               metric_cfg, ab, geud_a,
-                                               weights=weights,n_fractions = self.n_fractions))
-                edges_f, cum_f = compute_cumulative_histogram(dose_fixed,
-                                                               metric_cfg.dvh_bins,
-                                                               weights=weights)
-                dvh_data[struct_name][lbl_fixed] = (edges_f, cum_f)
-                
+                if self._dose_label is None: #if physical dose is passed as array
+                    row.update(compute_dvh_metrics(dose_vox, vol_cc, "Phys",
+                                                   metric_cfg, ab, geud_a,
+                                                   weights=weights,n_fractions = self.n_fractions))
+                    
+                    edges, cum = compute_cumulative_histogram(dose_vox,
+                                                              metric_cfg.dvh_bins,
+                                                              weights=weights)
+                    dvh_data[struct_name]["Phys"] = (edges, cum)
+                    # ---- Fixed RBE ----
+                    
+                    dose_fixed = rbe_fixed(dose_vox, rbe_cfg.fixed_rbe)
+                    lbl_fixed  = f"RBE{rbe_cfg.fixed_rbe}"
+                    row.update(compute_dvh_metrics(dose_fixed, vol_cc,  lbl_fixed ,
+                                                   metric_cfg, ab, geud_a,
+                                                   weights=weights,n_fractions = self.n_fractions))
+                    edges_f, cum_f = compute_cumulative_histogram(dose_fixed,
+                                                                   metric_cfg.dvh_bins,
+                                                                   weights=weights)
+                    dvh_data[struct_name][lbl_fixed] = (edges_f, cum_f)
+                    dose_ref      = dose_fixed
+                    highlet_label = "highLET_fixed_rbe"
+                else:
+                    lbl = self._dose_label   # already biologically weighted: no re-weighting
+                    row.update(compute_dvh_metrics(dose_vox, vol_cc, lbl, metric_cfg, ab, geud_a,
+                                                   weights=weights, n_fractions=self.n_fractions))
+                    edges, cum = compute_cumulative_histogram(dose_vox, metric_cfg.dvh_bins, weights=weights)
+                    dvh_data[struct_name][lbl] = (edges, cum)
+                    dose_ref      = dose_vox
+                    highlet_label = f"highLET_{lbl}"
             
                 if let_arr is not None:
-                    # ---- Variable RBE (per model) ----
-                    for model in rbe_cfg.models:
-                        rbe_dose_vox = compute_rbe_dose(dose_vox, let_vox, self.n_fractions, ab, model)
-                        row.update(compute_dvh_metrics(rbe_dose_vox, vol_cc, model,
-                                                       metric_cfg, ab, geud_a,
-                                                       weights=weights,n_fractions = self.n_fractions))
-                        e_m, c_m = compute_cumulative_histogram(rbe_dose_vox,
-                                                                 metric_cfg.dvh_bins,
-                                                                 weights=weights)
-        
-                        dvh_data[struct_name][model] = (e_m, c_m)
-                    # ---- LET-thresholded DVH metrics (high-LET subvolume on fixed RBE - dirty dose) ----
-                    
+
+                    # ---- Variable RBE (per model): ONLY when the input is physical dose ----
+                    if self._dose_label is None:
+                        for model in rbe_cfg.models:
+                            rbe_dose_vox = compute_rbe_dose(dose_vox, let_vox, self.n_fractions, ab, model)
+                            row.update(compute_dvh_metrics(rbe_dose_vox, vol_cc, model,
+                                                           metric_cfg, ab, geud_a,
+                                                           weights=weights, n_fractions=self.n_fractions))
+                            e_m, c_m = compute_cumulative_histogram(rbe_dose_vox,
+                                                                     metric_cfg.dvh_bins,
+                                                                     weights=weights)
+                            dvh_data[struct_name][model] = (e_m, c_m)
+                
+                    # ---- LET-thresholded DVH metrics (high-LET subvolume) ----
                     high_let_idx = let_vox >= metric_cfg.LET_thr
-                    
+                
                     if high_let_idx.sum() > 0:
                         w_high = weights[high_let_idx] if weights is not None else None
                         row.update(compute_dvh_metrics(
-                            dose_vox[high_let_idx], vol_cc,
-                            "highLET_fixed_rbe", metric_cfg, ab, geud_a,
-                            weights=w_high,n_fractions = self.n_fractions))
-
+                            dose_vox[high_let_idx], vol_cc, highlet_label, metric_cfg, ab, geud_a,
+                            weights=w_high, n_fractions=self.n_fractions))
+                
                     # ---- 2-D DLVH ----
                     H_diff, H_cum, d_edges, l_edges_2d = compute_2d_histogram(
-                        dose_fixed, let_vox,
+                        dose_ref, let_vox,
                         metric_cfg.dlvh_dose_bins,
                         metric_cfg.dlvh_let_bins,
                         weights=weights)
                     dlvh_data_diff[struct_name] = (H_diff, d_edges, l_edges_2d)
-                    dlvh_data_cum[struct_name] = (H_cum, d_edges, l_edges_2d)
+                    dlvh_data_cum[struct_name]  = (H_cum, d_edges, l_edges_2d)
+                                    
                     
-                    
+            
             if let_arr is not None:       
                 # ---- LET metrics & LVH ----
                 row.update(compute_let_metrics(let_vox, dose_vox, metric_cfg.lx,
