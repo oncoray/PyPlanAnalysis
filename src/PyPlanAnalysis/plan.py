@@ -919,11 +919,11 @@ class PatientPlan:
         no_eqd2 = [l for l in labels_needing_eqd2 if l not in grid.eqd2]
         if no_eqd2 and (grid.vrbe or self._imported_eqd2):
             if self.n_fractions is None:
-                warnings.warn(f"No EQD2 array and no n_fractions for {no_eqd2}: "
+                print(f"No EQD2 array and no n_fractions for {no_eqd2}: "
                               "EQD2-based metrics will be undefined for these labels.")
             else:
-                warnings.warn(f"No EQD2 array for {no_eqd2}: falling back to EQD2 from "
-                              f"{self.n_fractions} uniform fractions.")
+                print(f"No EQD2 array for {no_eqd2}: falling back to EQD2 from "
+                              f"{self.n_fractions} uniform fractions for these.")
                 
         all_rows    = []
         dvh_data    = {}              # {struct: {dose_type: (edges, cum)}}
@@ -1114,10 +1114,12 @@ class AnalysisResults:
                                         roi_name = roi_override,
                                         ctv_name = NTCPConfig.ctv_name)
             NTCP_dict = {}
-            for RBE in list_RBE_calculated:
-                NTCP_dict[RBE]  = NTCP_base.compute_NTCP(RBE, self.metrics_df)
-            NTCP_results[NTCP_model] = NTCP_dict
             
+            for RBE in list_RBE_calculated:
+                NTCP_RBE, roi_used  = NTCP_base.compute_NTCP(RBE, self.metrics_df)
+                NTCP_dict[RBE] = NTCP_RBE
+            NTCP_dict["ROI"] = roi_used
+            NTCP_results[NTCP_model] = NTCP_dict
         return NTCP_results       
  
     

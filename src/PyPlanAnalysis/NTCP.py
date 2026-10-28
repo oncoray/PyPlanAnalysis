@@ -422,7 +422,8 @@ class NTCPModelBase():
                     roi = s
         x = self.compute_x(vRBE_model,dfi_dvh,roi)
         if not np.isnan(x).any():
-            return np.round(self.impl_fn(x)*100,4)
+            return np.round(self.impl_fn(x)*100,4), roi
+        return None, roi
             
 def npNan(x):
     """Fallback implementation for an unrecognised model name; always returns NaN."""
