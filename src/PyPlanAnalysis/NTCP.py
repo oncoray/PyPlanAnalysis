@@ -221,8 +221,10 @@ class NTCPModelBase():
         and the metrics DataFrame has more than one ROI matching
         ``self.OAR_name``.
 
-        Selection is geometry-based when possible: the candidate ROI
-        whose center of mass is closest to the CTV's center of mass is
+        Selection is dose-based. candidate with the highest  mean dose = ipsi, lowest =
+        contra.
+        Fallback: geometry-based. currently not used, but could be integrated with dose.
+        The candidate ROI whose center of mass is closest to the CTV's center of mass is
         "ipsi", the farthest is "contra" (see
         ``_define_side_by_geometry``/``get_roi_center_of_mass``). If
         center-of-mass data isn't available for the CTV or for every
@@ -261,15 +263,7 @@ class NTCPModelBase():
             # Multiple ROIs but no side info in model name — fall back to first match
             return next(iter(rois))
 
-        # --- Prefer geometry-based (COM-distance-to-CTV) selection ---
-        geom_choice = self._define_side_by_geometry(dfi_dvh, list(rois.keys()))
-        if geom_choice is not None:
-            if self.not_printed:
-                print(f"{geom_choice} chosen as {self.side} ROI for {self.model_name} based on geometry")
-                self.not_printed = False
-            return geom_choice
-
-        # --- Fallback: dose-value heuristic ---
+        # --- Prefer dose-value heuristic ---
         if self.side == "ipsi" :
             
             print(f"{max(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {vRBE_model}")
@@ -278,6 +272,14 @@ class NTCPModelBase():
             
             print(f"{min(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {vRBE_model}")
             return min(rois, key=lambda k: rois[k])
+        
+        # --- Fallback - never applied for now: geometry-based (COM-distance-to-CTV) selection ---
+        geom_choice = self._define_side_by_geometry(dfi_dvh, list(rois.keys()))
+        if geom_choice is not None:
+            if self.not_printed:
+                print(f"{geom_choice} chosen as {self.side} ROI for {self.model_name} based on geometry")
+                self.not_printed = False
+            return geom_choice
 
     def _define_side_by_geometry(self, dfi_dvh, candidate_rois):
         """

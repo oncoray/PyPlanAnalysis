@@ -26,7 +26,57 @@ from .plots    import (plot_cumulative_histogram, plot_dvh_comparison,
 from .NTCP import (NTCPConfig,NTCPModelBase)
 import copy
 import SimpleITK as sitk
-
+from dataclasses import dataclass
+# ============================================================
+#  Shared types and constants
+# ============================================================
+ 
+ArrayInput = Union[np.ndarray, sitk.Image]
+ 
+#: Label of the physical dose in dvh_data / metrics_df. Cannot be used for a vRBE array.
+PHYS_LABEL = "Phys"
+ 
+# Plausibility thresholds used by PatientPlan.validate_inputs(). They only trigger
+# warnings (never errors): they exist to catch swapped, mis-scaled or mis-ordered arrays.
+_VOXEL_FLOOR_FRACTION   = 0.05          # ratios evaluated where dose > 5 % of its maximum
+_VRBE_RATIO_MEDIAN      = (0.95, 1.60)  # median vRBE / physical
+_VRBE_RATIO_TAILS       = (0.80, 3.00)  # 0.1 % and 99.9 % percentiles of vRBE / physical
+_EQD2_RATIO_MEDIAN      = (0.40, 3.00)  # median EQD2 / dose of the same label
+_MAX_RATIO_SAMPLES      = 2_000_000     # subsample very large grids for the percentile checks
+ 
+ 
+@dataclass
+class _GridData:
+    """
+    Arrays and geometry used for ONE analysis pass, after the optional
+    resampling. Everything in here lives on the same grid.
+    """
+    dose        : np.ndarray | None     # total physical dose [Gy]
+    let         : np.ndarray | None     # total dose-averaged LET [keV/um]
+    vrbe        : dict                  # {label: total variable-RBE dose [Gy(RBE)]}
+    eqd2        : dict                  # {label: total EQD2 [Gy / Gy(RBE)]}
+    origin      : tuple
+    spacing     : tuple                 # x, y, z
+    shape       : tuple                 # z, y, x
+    z_positions : np.ndarray
+ 
+ 
+def _ratio_percentiles(num: np.ndarray, den: np.ndarray, floor_fraction: float):
+    """
+    (0.1 %, 50 %, 99.9 %) percentiles of num/den where den > floor_fraction*max(den).
+    Returns None when no voxel qualifies.
+    """
+    dmax = float(den.max())
+    if dmax <= 0.0:
+        return None
+    sel = den > floor_fraction * dmax
+    if not sel.any():
+        return None
+    ratio = num[sel] / den[sel]
+    if ratio.size > _MAX_RATIO_SAMPLES:
+        ratio = ratio[:: int(np.ceil(ratio.size / _MAX_RATIO_SAMPLES))]
+    return tuple(np.percentile(ratio, [0.1, 50.0, 99.9]))
+ 
 # ============================================================
 #  PatientPlan
 # ============================================================
@@ -52,6 +102,12 @@ class PatientPlan:
     ------------
     PatientPlan.from_folder(folder, patient_id=None)
         Auto-discover DICOM files from a folder.
+        
+    PatientPlan.from_array(dose_array, dose_reference, rtstruct, ...)
+        Build a plan from arrays that were accumulated outside (several
+        treatment sessions, adaptations). The total PHYSICAL dose is the
+        primary dose; total variable-RBE doses and total EQD2 doses computed
+        outside can be attached to it (see from_array / add_vrbe / add_eqd2).
     """
 
     def __init__(self,
@@ -63,7 +119,7 @@ class PatientPlan:
                  CT_folder_path : Union[str, Path, None] = None,
                  n_fractions    : int  | None = None):
         
-        self._dose_label = None 
+        
         self.plan_file   = Path(plan_file)      if plan_file      else None
         self.dose_file   = Path(dose_file)      if dose_file      else None
         self.let_file    = Path(let_file)       if let_file       else None
@@ -97,43 +153,236 @@ class PatientPlan:
         self._loaded         = False
         self._CT_loaded      = False
         
+        # Externally computed (multi-session / adaptive) results, all on the reference grid.
+        self._imported_vrbe       : dict = {}     # {label: total vRBE dose}
+        self._imported_eqd2       : dict = {}     # {label: total EQD2}
+        self._ref_img        = None          # cached SimpleITK template of the reference grid
+        
     # ----------------------------------------------------------
     @classmethod
     def from_array(cls,
-                   dose_array     : np.ndarray,
-                   dose_reference : Union[str, Path],   # any session RTDOSE on the same grid
+                   dose_array     : ArrayInput,
+                   dose_reference : Union[str, Path],
                    rtstruct       : Union[str, Path],
-                   n_fractions    : int,                # TOTAL over all sessions
-                   is_rbe         : str | None = None,  # e.g. "mcnamara"; None = physical dose
-                   let_array      : np.ndarray | None = None,
+                   *,
+                   let_array      : ArrayInput | None = None,
+                   vrbe_arrays    : dict[str, ArrayInput] | None = None,
+                   eqd2_arrays    : dict[str, ArrayInput] | None = None,
+                   n_fractions    : int | None = None,
                    CT_folder_path : Union[str, Path, None] = None,
                    patient_id     : str | None = None) -> "PatientPlan":
-        
-        """Build a PatientPlan from arrays instead of dose/LET files."""
-        if n_fractions is None:
-            raise ValueError("n_fractions (total over all sessions) is required.")
-    
-        ref_ds   = pydicom.dcmread(str(dose_reference), stop_before_pixels=True, force=True)
-        expected = (int(ref_ds.NumberOfFrames), int(ref_ds.Rows), int(ref_ds.Columns))
-        for name, arr in (("dose_array", dose_array), ("let_array", let_array)):
-            if arr is not None and tuple(arr.shape) != expected:
-                raise ValueError(
-                    f"{name} shape {tuple(arr.shape)} does not match the reference "
-                    f"grid {expected}. The array must be on the reference RTDOSE grid "
-                    "(not resampled to CT / a custom grid).")
-    
+        """
+        Build a PatientPlan from arrays that were accumulated outside
+        (several treatment sessions, adaptations, ...).
+ 
+        The total PHYSICAL dose is always the primary dose. Variable-RBE
+        doses and EQD2 doses are optional add-ons stored next to it, so ONE
+        plan serves any number of RBE models: structure masks are computed
+        once and every label ends up in the same metrics row / DVH dict.
+ 
+        Conventions (the caller is responsible for them)
+        ------------------------------------------------
+        - Every array is a TOTAL over all sessions, in Gy (physical) or
+          Gy(RBE) (vRBE), on the grid of `dose_reference`, ordered
+          (frames, rows, cols) = (z, y, x), the same order as RTDOSE pixel data.
+        - EQD2 arrays must be accumulated session by session outside, e.g.
+          sum_i EQD2(d_i, n_i): this is why the plan does not assume a uniform
+          fractionation.
+        - let_array is the total dose-averaged LET:
+          LETd_tot = sum_i(D_i * LETd_i) / sum_i(D_i)  (NOT a plain sum/mean).
+ 
+        Parameters
+        ----------
+        dose_array     : total physical dose [Gy].
+        dose_reference : any RTDOSE on the target grid. Used ONLY for grid
+                         geometry and PatientID, never for dose values.
+        rtstruct       : RTSTRUCT file.
+        let_array      : total LETd [keV/um], optional.
+        vrbe_arrays    : {label: total vRBE dose}, e.g. {"mcnamara": arr, "wedenberg": arr2}.
+                         Labels become column suffixes and DVH keys and are matched by
+                         NTCP models, so use the same names as RBEConfig.models.
+                         "Phys" is reserved.
+        eqd2_arrays    : {label: total EQD2}. Valid labels: "Phys", the fixed-RBE label
+                         (e.g. "RBE1.1") and every key of vrbe_arrays.
+        n_fractions    : OPTIONAL when EQD2 arrays are supplied. Needed only (a) to
+                         compute internal RBE models from the summed dose, which assumes
+                         a uniform fractionation, and (b) as uniform-fractionation
+                         fallback for labels without an EQD2 array.
+        CT_folder_path : optional CT series.
+        patient_id     : defaults to the PatientID of dose_reference.
+ 
+        Grid handling
+        -------------
+        - numpy arrays carry no geometry: their shape must equal the reference grid,
+          otherwise a ValueError is raised.
+        - SimpleITK images carry geometry: if it matches the reference grid (size,
+          spacing, origin, direction) they are used as is; otherwise they are
+          resampled (linear) onto the reference grid with a warning. Voxels outside
+          the source field of view become 0.
+        """
+        ref_ds = pydicom.dcmread(str(dose_reference), stop_before_pixels=True, force=True)
+ 
         plan = cls(patient_id=patient_id or getattr(ref_ds, "PatientID", "UNKNOWN"),
                    rtstruct=rtstruct, CT_folder_path=CT_folder_path,
                    n_fractions=n_fractions)
-    
-        plan._dose_arr   = np.asarray(dose_array, dtype=np.float64)
-        plan._dose_ds    = ref_ds
-        plan._let_arr    = None if let_array is None else np.asarray(let_array, dtype=np.float64)
-        plan._let_ds     = None if let_array is None else ref_ds
-        plan._dose_label = is_rbe or None
-    
-        plan.load()   # existing code: reads RTSTRUCT + CT, leaves the seeded arrays alone
+ 
+        plan._dose_ds  = ref_ds
+        plan._dose_arr = plan._conform_to_reference(dose_array, "dose_array", dtype=np.float64)
+        if not plan._dose_arr.any():
+            raise ValueError("dose_array is identically zero.")
+ 
+        if let_array is not None:
+            plan._let_arr = plan._conform_to_reference(let_array, "let_array", dtype=np.float64)
+            plan._let_ds  = ref_ds
+ 
+        for label, arr in (vrbe_arrays or {}).items():
+            plan.add_vrbe(label, arr)
+        for label, arr in (eqd2_arrays or {}).items():
+            plan.add_eqd2(label, arr)
+ 
+        if n_fractions is None and not (plan._imported_vrbe or plan._imported_eqd2):
+            raise ValueError(
+                "n_fractions is required when neither vrbe_arrays nor eqd2_arrays are "
+                "given (EQD2 would otherwise be undefined).")
+ 
+        plan.load()   # reads RTSTRUCT + CT; the seeded arrays are left untouched
         return plan
+ 
+    # ----------------------------------------------------------
+    #  External (pre-accumulated) data
+    # ----------------------------------------------------------
+    
+    def add_vrbe(self, label: str, array: ArrayInput) -> None:
+        """
+        Attach a TOTAL variable-RBE dose computed outside (e.g. summed over
+        sessions). Replaces an existing array with the same label.
+        """
+        if self._dose_arr is None:
+            raise RuntimeError("Set the total physical dose before adding vRBE doses.")
+        if label == PHYS_LABEL:
+            raise ValueError(f"'{PHYS_LABEL}' is reserved for the physical dose.")
+        self._imported_vrbe[label] = self._conform_to_reference(array, f"vrbe_arrays['{label}']")
+    
+    def add_eqd2(self, label: str, array: ArrayInput) -> None:
+        """
+        Attach a TOTAL EQD2 dose computed outside, accumulated session by
+        session. `label` must match a dose label: "Phys", the fixed-RBE label
+        (e.g. "RBE1.1") or a label given to add_vrbe().
+        """
+        if self._dose_arr is None:
+            raise RuntimeError("Set the total physical dose before adding EQD2 doses.")
+        self._imported_eqd2[label] = self._conform_to_reference(array, f"eqd2_arrays['{label}']")
+ 
+    # ----------------------------------------------------------
+    #  Grid conformity
+    # ----------------------------------------------------------
+ 
+    def _reference_image(self) -> sitk.Image:
+        """SimpleITK template carrying the reference-grid geometry (built once)."""
+        if self._ref_img is None:
+            shape = (int(self._dose_ds.NumberOfFrames),
+                     int(self._dose_ds.Rows),
+                     int(self._dose_ds.Columns))
+            self._ref_img = _np_to_sitk(np.zeros(shape, dtype=np.float32), self._dose_ds)
+        return self._ref_img
+ 
+    @staticmethod
+    def _same_geometry(a: sitk.Image, b: sitk.Image,
+                       tol_mm: float = 1e-3, tol_dir: float = 1e-4) -> bool:
+        return (a.GetSize() == b.GetSize()
+                and np.allclose(a.GetSpacing(),   b.GetSpacing(),   atol=tol_mm)
+                and np.allclose(a.GetOrigin(),    b.GetOrigin(),    atol=tol_mm)
+                and np.allclose(a.GetDirection(), b.GetDirection(), atol=tol_dir))
+ 
+    def _conform_to_reference(self, array: ArrayInput, name: str,
+                              dtype=np.float32) -> np.ndarray:
+        """
+        Return `array` as an independent ndarray on the reference grid.
+ 
+        ndarray      -> shape check only (no geometry available), error on mismatch.
+        sitk.Image   -> geometry check; resampled onto the reference grid if different.
+        In both cases the values must be finite, non-negative and not all zero.
+        """
+        ref_shape = (int(self._dose_ds.NumberOfFrames),
+                     int(self._dose_ds.Rows),
+                     int(self._dose_ds.Columns))
+ 
+        if isinstance(array, sitk.Image):
+            ref_img = self._reference_image()
+            if self._same_geometry(array, ref_img):
+                arr = sitk.GetArrayFromImage(array)
+            else:
+                warnings.warn(
+                    f"{name}: grid differs from the reference grid "
+                    f"(size {array.GetSize()} vs {ref_img.GetSize()}, spacing "
+                    f"{tuple(round(v, 3) for v in array.GetSpacing())} vs "
+                    f"{tuple(round(v, 3) for v in ref_img.GetSpacing())}). "
+                    "Resampling (linear) onto the reference grid; voxels outside "
+                    "the source field of view are set to 0.")
+                res = sitk.Resample(array, ref_img, sitk.Transform(),
+                                    sitk.sitkLinear, 0.0, sitk.sitkFloat64)
+                arr = sitk.GetArrayFromImage(res)
+        else:
+            arr = np.asarray(array)
+            if arr.shape != ref_shape:
+                hint = ""
+                if arr.shape == ref_shape[::-1]:
+                    hint = (" The shape looks like (x, y, z); the expected order is "
+                            "(frames, rows, cols) = (z, y, x).")
+                raise ValueError(
+                    f"{name}: shape {arr.shape} does not match the reference grid "
+                    f"{ref_shape}.{hint} A numpy array has no geometry and cannot be "
+                    "resampled: put it on the reference grid, or pass a SimpleITK image "
+                    "to enable automatic resampling.")
+ 
+        arr = np.array(arr, dtype=dtype, copy=True)    # never alias the caller's memory
+        if not np.isfinite(arr).all():
+            raise ValueError(f"{name}: contains NaN or inf values.")
+        if arr.min() < -1e-6:
+            raise ValueError(f"{name}: contains negative values (min={arr.min():.4g}).")
+        if not arr.any():
+            raise ValueError(f"{name}: is identically zero.")
+        return arr
+ 
+    def validate_inputs(self) -> None:
+        """
+        Plausibility checks of the external arrays against the physical dose, on
+        the native grid. Only warns: it catches swapped, mis-scaled or mis-ordered
+        inputs, it cannot prove correctness. Called automatically by analyse().
+        """
+        phys = self._dose_arr
+        if phys is None:
+            return
+ 
+        for label, vrbe in self._imported_vrbe.items():
+            stats = _ratio_percentiles(vrbe, phys, _VOXEL_FLOOR_FRACTION)
+            if stats is None:
+                continue
+            lo, med, hi = stats
+            if np.isclose(lo, hi, atol=1e-6):
+                warnings.warn(f"vRBE '{label}' is a constant multiple ({med:.3f}) of the "
+                              "physical dose: did you pass the 1.1-weighted dose?")
+            elif (lo < _VRBE_RATIO_TAILS[0] or hi > _VRBE_RATIO_TAILS[1]
+                  or not (_VRBE_RATIO_MEDIAN[0] < med < _VRBE_RATIO_MEDIAN[1])):
+                warnings.warn(
+                    f"vRBE '{label}' / physical ratio looks implausible "
+                    f"(0.1%={lo:.2f}, median={med:.2f}, 99.9%={hi:.2f}). "
+                    "Check units, scaling and array order.")
+ 
+        for label, eqd2 in self._imported_eqd2.items():
+            base = phys if label == PHYS_LABEL else self._imported_vrbe.get(label)
+            if base is None:         # e.g. fixed-RBE label: its dose is built in analyse()
+                continue
+            stats = _ratio_percentiles(eqd2, base, _VOXEL_FLOOR_FRACTION)
+            if stats is None:
+                continue
+            med = stats[1]
+            if not (_EQD2_RATIO_MEDIAN[0] < med < _EQD2_RATIO_MEDIAN[1]):
+                warnings.warn(
+                    f"EQD2 '{label}' / total dose median ratio is {med:.2f}; "
+                    "check that it is a total EQD2 (not per fraction) of the same label.")
+    
+    
 
     @classmethod
     def from_folder(cls,
@@ -180,6 +429,8 @@ class PatientPlan:
         )
 
     # ----------------------------------------------------------
+    
+
     def load(self):
         """Load and cache all DICOM data. Called automatically by analyse()."""
         if self._loaded:
@@ -204,7 +455,8 @@ class PatientPlan:
             else:
                 self.n_fractions = n_fractions_from_rtplan
                 
-        if self.plan_file is None and self.n_fractions is None:
+        if (self.plan_file is None and self.n_fractions is None
+                and not (self._imported_vrbe or self._imported_eqd2)):
             raise AttributeError(
                 "No fraction number is given, please define it or select RTPLAN"
             )
@@ -273,101 +525,106 @@ class PatientPlan:
     
     
     def _sanity_check_and_resample_dose(self,
-                                        structures              : list = None,
-                                        metric_cfg              : MetricConfig   = None,
-                                        resample_on_CT          : bool = False,
-                                        resample_on_custom_grid : bool = False):
+                                structures              : list = None,
+                                metric_cfg              : MetricConfig   = None,
+                                resample_on_CT          : bool = False,
+                                resample_on_custom_grid : bool = False) -> "_GridData | None":
+        """
+        Validate the loaded data and bring dose, LET and every external vRBE/EQD2
+        array onto the analysis grid (reference grid, CT grid or custom grid).
+        Works on local copies: self's arrays are never modified, so repeated
+        calls with any flag combination start from the same pristine data.
+        Returns None (after a warning) when no analysis is possible.
+        """
         self.load()
         # ---------------------------------------------------------
         # Validate loaded data
         # ---------------------------------------------------------
-        
-        
-        if self._dose_ds is not None:
-            assert tuple(self._dose_arr.shape) == (
-                int(self._dose_ds.NumberOfFrames),
-                int(self._dose_ds.Rows),
-                int(self._dose_ds.Columns),
-            )
-    
+        if self._dose_ds is not None and self._dose_arr is not None:
+            expected = (int(self._dose_ds.NumberOfFrames),
+                        int(self._dose_ds.Rows),
+                        int(self._dose_ds.Columns))
+            if tuple(self._dose_arr.shape) != expected:
+                raise ValueError(f"Dose array shape {tuple(self._dose_arr.shape)} does not "
+                                 f"match its DICOM header {expected}.")
+ 
         if self._dose_arr is None and self._let_arr is None:
             warnings.warn("Neither dose nor LET could be loaded — nothing to analyse.")
             return None
         if self._rtstruct_ds is None:
             warnings.warn("No RT Struct loaded — cannot extract any structures.")
-            return None   
-        
+            return None
+ 
+        if resample_on_CT and not self._CT_loaded:
+            raise ValueError("No CT has been loaded for resampling")
+        if resample_on_custom_grid and resample_on_CT:
+            raise ValueError("Two resampling criteria have been selected. Please select only one.")
+ 
         # ---------------------------------------------------------
         # Local copies: never modify self's pristine data
         # ---------------------------------------------------------
-
-        # Using local variables makes analyse() idempotent with respect to
-        # self: repeated calls, in any order, with any combination of flags,
-        # always start from the same pristine self._dose_arr/self._let_arr.
-        
         dose_arr = self._dose_arr.copy() if self._dose_arr is not None else None
         dose_ds  = copy.deepcopy(self._dose_ds) if self._dose_ds is not None else None
-        
         let_arr  = self._let_arr.copy() if self._let_arr is not None else None
         let_ds   = copy.deepcopy(self._let_ds) if self._let_ds is not None else None
-
-        # --- resample dose/LET only if the array exists ---
+        vrbe     = dict(self._imported_vrbe)    # arrays are only read below, never modified
+        eqd2     = dict(self._imported_eqd2)
+ 
         sitk_dose = _np_to_sitk(dose_arr, dose_ds) if dose_arr is not None else None
         sitk_let  = _np_to_sitk(let_arr,  let_ds)  if let_arr  is not None else None
-
+ 
         grid_origin = grid_spacing = grid_shape = grid_z_positions = None
-        
-        if  resample_on_CT and not self._CT_loaded :
-            raise ValueError("No CT has been loaded for resampling")
-            
-            
-        if resample_on_custom_grid and resample_on_CT:
-            raise ValueError("Two resampling criteria have been selected. Please select only one.")
-            
-        
+ 
+        def _resample_extra(arr, resampler):
+            """Resample an external array exactly like the physical dose."""
+            return resampler(_np_to_sitk(np.asarray(arr, dtype=np.float64),
+                                         copy.deepcopy(self._dose_ds)))
+ 
         if self._CT_loaded and resample_on_CT:
-            
-            print("  Resampling dose and LET onto CT grid...")
-
+            print("  Resampling dose, LET, vRBE and EQD2 onto CT grid...")
+ 
+            def _on_ct(img):
+                return sitk.GetArrayFromImage(resample_dose_on_ct(img, self._CT_sitk))
+ 
             if sitk_dose is not None:
-                res_dose_sitk = resample_dose_on_ct(sitk_dose,self._CT_sitk)  
-                dose_arr = sitk.GetArrayFromImage(res_dose_sitk)     #sitk_dose	
-                
-            if sitk_let is not None:    
-                res_let_sitk = resample_dose_on_ct(sitk_let, self._CT_sitk)
-                let_arr = sitk.GetArrayFromImage(res_let_sitk)       #sitk_let	
-            
-            #Set grid for resampling and creating struct masks
-            grid_origin = self._CT_geom['origin']
-            grid_spacing = self._CT_geom['spacing'] #x,y,z
-            grid_shape = self._CT_geom['shape']
+                dose_arr = _on_ct(sitk_dose)
+            if sitk_let is not None:
+                let_arr = _on_ct(sitk_let)
+            vrbe = {k: _resample_extra(v, _on_ct) for k, v in vrbe.items()}
+            eqd2 = {k: _resample_extra(v, _on_ct) for k, v in eqd2.items()}
+ 
+            grid_origin      = self._CT_geom['origin']
+            grid_spacing     = self._CT_geom['spacing']      # x,y,z
+            grid_shape       = self._CT_geom['shape']
             grid_z_positions = self._CT_geom['z_positions']
-            
+ 
         elif resample_on_custom_grid:
-                grid_new = metric_cfg.New_grid
-                
-                print(f"  Resampling dose and LET onto custom  {grid_new} grid...")
-                
-                if sitk_dose is not None:
-                    res_dose_sitk, dose_arr, dose_geom, _ = resample_dose_to_new_grid(sitk_dose,
-                                                                                            dose_ds,
-                                                                                            grid_new)
-                if sitk_let is not None:  
-                    res_let_sitk, let_arr, _, let_ds = resample_dose_to_new_grid (sitk_let,
-                                                                             let_ds,
-                                                                             grid_new)
-                
-                #Set grid for resampling and creating struct masks
-                grid_origin = dose_geom['origin']
-                grid_spacing = dose_geom['spacing'] #x,y,z
-                grid_shape = dose_geom['shape'] #z,y,x
-                grid_z_positions = dose_geom['z_positions']
-                
+            grid_new = metric_cfg.New_grid
+            print(f"  Resampling dose, LET, vRBE and EQD2 onto custom {grid_new} grid...")
+ 
+            def _on_grid(img):
+                _, arr_new, _, _ = resample_dose_to_new_grid(img, copy.deepcopy(self._dose_ds),
+                                                             grid_new)
+                return arr_new
+ 
+            if sitk_dose is not None:
+                _, dose_arr, dose_geom, _ = resample_dose_to_new_grid(sitk_dose, dose_ds, grid_new)
+            if sitk_let is not None:
+                _, let_arr, let_geom, let_ds = resample_dose_to_new_grid(sitk_let, let_ds, grid_new)
+                if sitk_dose is None:
+                    dose_geom = let_geom
+            vrbe = {k: _resample_extra(v, _on_grid) for k, v in vrbe.items()}
+            eqd2 = {k: _resample_extra(v, _on_grid) for k, v in eqd2.items()}
+ 
+            grid_origin      = dose_geom['origin']
+            grid_spacing     = dose_geom['spacing']          # x,y,z
+            grid_shape       = dose_geom['shape']            # z,y,x
+            grid_z_positions = dose_geom['z_positions']
+ 
         else:
-            
             print("No Resampling for dose and LET")
-            
-            # no CT, no resample requested — use whichever grid (dose preferred, else LET) is available
+ 
+            # no CT, no resample requested: use whichever grid (dose preferred, else LET) is available
             ref_ds = dose_ds if dose_ds is not None else let_ds
             if ref_ds is not None:
                 grid_origin, grid_spacing = get_grid_geometry(ref_ds)
@@ -375,12 +632,14 @@ class PatientPlan:
                                     else let_arr.shape)
                 z_offsets        = [float(v) for v in ref_ds.GridFrameOffsetVector]
                 grid_z_positions = np.array([grid_origin[2] + o for o in z_offsets])
-        
+ 
         if grid_origin is None:
             warnings.warn("Could not determine a voxel grid — aborting analysis.")
             return None
-        
-        return dose_arr, let_arr, grid_origin, grid_spacing, grid_shape, grid_z_positions
+ 
+        return _GridData(dose=dose_arr, let=let_arr, vrbe=vrbe, eqd2=eqd2,
+                         origin=grid_origin, spacing=grid_spacing,
+                         shape=grid_shape, z_positions=grid_z_positions)
     
     
     def get_roi_mask(self,struct_name, rtstruct_ds, grid_origin, grid_spacing,
@@ -409,7 +668,7 @@ class PatientPlan:
         """Substring match on structure name, same as alpha_beta lookup."""
         name = struct_name.lower()
         for key, val in priority_map.items():
-            if key in name:
+            if key.lower() in name:
                 return val 
         return 999 # lowest priority when not listed
         
@@ -441,6 +700,23 @@ class PatientPlan:
             priority_map[update] = priority
 
         return ab_map, priority_map
+    
+    def get_alpha_beta_map(self, radiobio_cfg=None, structures=None,
+                           use_fractional=False, supersample=4, max_supersample=12):
+        radiobio_cfg = radiobio_cfg or RadiobiologyConfig()
+        self.load()
+        structures = self.structure_names if structures is None else \
+                     [s for s in structures if s in self.structure_names]
+    
+        grid = self._sanity_check_and_resample_dose(structures, MetricConfig(), False, False)
+        if grid is None:
+            raise ValueError("Could not determine the voxel grid.")
+    
+        ab_map, _ = self.build_alpha_beta_map(
+            self._rtstruct_ds, structures,
+            grid.origin, grid.spacing, grid.shape, grid.z_positions,    
+            radiobio_cfg, use_fractional, supersample, max_supersample)
+        return ab_map.astype(np.float64)
 
     def compute_vRBE(self,
                     model : str,
@@ -483,12 +759,21 @@ class PatientPlan:
         A container holding the 3D vRBE dose array, the α/β map, grid geometry,
         and a to_nii() method to save both volumes as NIfTI files.
         """
-        if self._dose_label is not None:
-            raise ValueError(f"Dose is already RBE-weighted ('{self._dose_label}'); "
-                             "compute_vRBE would apply RBE twice.")
+        if self._dose_arr is None:
+            raise ValueError("compute_vRBE needs a physical dose.")
+        if self.n_fractions is None:
+            raise ValueError("compute_vRBE needs n_fractions: the RBE models depend on the "
+                             "dose per fraction and assume a uniform fractionation.")
+        if self._imported_vrbe:
+            warnings.warn("This plan carries externally computed vRBE doses (multi-session). "
+                          "compute_vRBE applies the model to the SUMMED physical dose assuming "
+                          "uniform fractionation, which is not valid for heterogeneous sessions.")
+        if model.lower() != "linear" and self._let_arr is None:
+            raise ValueError(f"RBE model '{model}' needs a LET map.")
+ 
         metric_cfg   = metric_cfg   or MetricConfig()
         radiobio_cfg = radiobio_cfg or RadiobiologyConfig()
-
+ 
         if structures is None:
             structures = self.structure_names
         else:
@@ -497,32 +782,31 @@ class PatientPlan:
             if missing:
                 warnings.warn(f"Structures not in RT Struct: {missing}")
             structures = [s for s in structures if s in available]
-
+ 
         mode = f"fractional (supersample={supersample})" if use_fractional else "binary"
         print(f"Analysing {len(structures)} structures [{mode} mask]...")
-        
+ 
         #--------------------
         # Perform resampling and sanity checks
-        #-----------------------------
-        dose_arr, let_arr, grid_origin, grid_spacing, grid_shape, grid_z_positions = self._sanity_check_and_resample_dose( structures,
-                                                                                                                            metric_cfg,
-                                                                                                                            resample_on_CT,
-                                                                                                                            resample_on_custom_grid)
-        
-            
-        ab_map,_ = self.build_alpha_beta_map( self._rtstruct_ds, structures, grid_origin, grid_spacing,
-                             grid_shape, grid_z_positions, radiobio_cfg,
-                             use_fractional,supersample,max_supersample)
-        
-        vRBE = compute_rbe_dose(dose_arr,let_arr, self.n_fractions, ab_map, model)
-        
+        #--------------------
+        grid = self._sanity_check_and_resample_dose(structures, metric_cfg,
+                                                    resample_on_CT, resample_on_custom_grid)
+        if grid is None:
+            raise RuntimeError("compute_vRBE aborted: no usable dose grid (see warnings).")
+ 
+        ab_map,_ = self.build_alpha_beta_map(self._rtstruct_ds, structures, grid.origin, grid.spacing,
+                                             grid.shape, grid.z_positions, radiobio_cfg,
+                                             use_fractional, supersample, max_supersample)
+ 
+        vRBE = compute_rbe_dose(grid.dose, grid.let, self.n_fractions, ab_map, model)
+ 
         return vRBEResults(patient_id  = self.patient_id,
-                           model = model.lower(), 
-                           dose_arr = dose_arr, 
-                           let_arr = let_arr,
+                           model = model.lower(),
+                           dose_arr = grid.dose,
+                           let_arr = grid.let,
                            vRBE = vRBE,
-                           ab_map = ab_map, 
-                           geom = {"origin" : grid_origin,"spacing" : grid_spacing} )
+                           ab_map = ab_map,
+                           geom = {"origin" : grid.origin,"spacing" : grid.spacing} )
     
     
     def analyse(self,
@@ -534,7 +818,8 @@ class PatientPlan:
                 resample_on_custom_grid      : bool                 = False,
                 use_fractional: bool                 = False,
                 supersample   : int                  = 4,
-                max_supersample: int                 = 12) -> "AnalysisResults":
+                max_supersample: int                 = 12,
+                compute_internal_models : bool | None = None) -> "AnalysisResults":
         """
         Run the full analysis pipeline for this patient.
 
@@ -556,6 +841,21 @@ class PatientPlan:
         max_supersample: hard cap on the adaptive in-plane supersampling
                         factor, to bound compute cost for very small ROIs.
 
+        compute_internal_models : whether to apply rbe_cfg.models to the physical dose.
+                        These models assume a uniform fractionation (n_fractions), so the
+                        default is True only if NO imported vRBE arrays are attached and
+                        n_fractions is known. Imported arrays (vrbe_arrays) always win over
+                        an internal model with the same label.
+ 
+        Labels in metrics_df / dvh_data
+        -------------------------------
+        "Phys", "RBE<fixed_rbe>", internal models, then imported vRBE labels.
+        EQD2-based metrics use the imported EQD2 array of the label when present;
+        otherwise they fall back to the uniform-fractionation conversion with
+        n_fractions (warning), or are left undefined when n_fractions is None.
+        DLVH and LET metrics are computed on the physical / fixed-RBE dose, so they do
+        not depend on the RBE model.
+ 
         Returns
         -------
         AnalysisResults
@@ -579,12 +879,52 @@ class PatientPlan:
         #--------------------
         # Perform resampling and sanity checks
         #-----------------------------
-        dose_arr, let_arr, grid_origin, grid_spacing, grid_shape, grid_z_positions = self._sanity_check_and_resample_dose( structures,
-                                                                                                                            metric_cfg,
-                                                                                                                            resample_on_CT,
-                                                                                                                            resample_on_custom_grid)
+        self.validate_inputs()
+        grid = self._sanity_check_and_resample_dose(structures, metric_cfg,
+                                                    resample_on_CT, resample_on_custom_grid)
+        if grid is None:
+            raise RuntimeError("Analysis aborted: no usable dose grid (see warnings).")
+ 
+        dose_arr, let_arr = grid.dose, grid.let
+        grid_origin, grid_spacing = grid.origin, grid.spacing
+        grid_shape, grid_z_positions = grid.shape, grid.z_positions  
         
-            
+        # ---- label bookkeeping and consistency checks (once, before the structure loop) ----
+        fixed_lbl = f"RBE{rbe_cfg.fixed_rbe}"
+        if fixed_lbl in grid.vrbe:
+            raise ValueError(f"vRBE label '{fixed_lbl}' collides with the fixed-RBE label.")
+ 
+        if compute_internal_models is None:
+            compute_internal_models = (not grid.vrbe) and self.n_fractions is not None
+        if compute_internal_models and self.n_fractions is None:
+            raise ValueError("Internal RBE models need n_fractions (uniform fractionation).")
+ 
+        ext_lower      = {k.lower() for k in grid.vrbe}
+        internal_models = [m for m in rbe_cfg.models if m.lower() not in ext_lower]
+        shadowed        = [m for m in rbe_cfg.models if m.lower() in ext_lower]
+        if shadowed:
+            print(f"  Imported vRBE overrides internal model(s): {shadowed}")
+        if grid.vrbe and compute_internal_models and internal_models:
+            warnings.warn(f"Internal models {internal_models} are applied to the summed physical "
+                          "dose assuming uniform fractionation; import vrbe_arrays for multi-session or adapted plans.")
+ 
+        valid_eqd2 = {PHYS_LABEL, fixed_lbl, *grid.vrbe}
+        unused     = sorted(set(grid.eqd2) - valid_eqd2)
+        if unused:
+            warnings.warn(f"EQD2 arrays ignored (no matching dose label): {unused}. "
+                          f"Valid labels: {sorted(valid_eqd2)}.")
+        grid.eqd2 = {k: v for k, v in grid.eqd2.items() if k in valid_eqd2}
+ 
+        labels_needing_eqd2 = [PHYS_LABEL, fixed_lbl, *grid.vrbe]
+        no_eqd2 = [l for l in labels_needing_eqd2 if l not in grid.eqd2]
+        if no_eqd2 and (grid.vrbe or self._imported_eqd2):
+            if self.n_fractions is None:
+                warnings.warn(f"No EQD2 array and no n_fractions for {no_eqd2}: "
+                              "EQD2-based metrics will be undefined for these labels.")
+            else:
+                warnings.warn(f"No EQD2 array for {no_eqd2}: falling back to EQD2 from "
+                              f"{self.n_fractions} uniform fractions.")
+                
         all_rows    = []
         dvh_data    = {}              # {struct: {dose_type: (edges, cum)}}
         lvh_data    = {}              # {struct: (edges, cum)}
@@ -597,6 +937,16 @@ class PatientPlan:
         
         vol_cc = float(np.prod(grid_spacing)) / 1000.0
         
+        def _metrics_and_dvh(label, dose_v, eqd2_v, weights, ab, geud_a, store_dvh=True):
+            """DVH metrics (+ cumulative histogram) of one label on one structure."""
+            kwargs = dict(weights=weights, n_fractions=self.n_fractions)
+            if eqd2_v is not None:
+                kwargs["eqd2_dose"] = eqd2_v     # total EQD2 imported
+            row.update(compute_dvh_metrics(dose_v, vol_cc, label, metric_cfg, ab, geud_a, **kwargs))
+            if store_dvh:
+                dvh_data[struct_name][label] = compute_cumulative_histogram(
+                    dose_v, metric_cfg.dvh_bins, weights=weights)
+                
         for struct_name in structures:
             print(f"    → {struct_name}")
 
@@ -623,7 +973,8 @@ class PatientPlan:
             
             dose_vox = dose_arr[mask] if dose_arr is not None else None
             let_vox  = let_arr[mask]  if let_arr  is not None else None 
-            
+            vrbe_vox = {k: v[mask].astype(np.float64, copy=False) for k, v in grid.vrbe.items()}
+            eqd2_vox = {k: v[mask].astype(np.float64, copy=False) for k, v in grid.eqd2.items()}
             
             # effective volume: sum of fractional weights × voxel volume
             if weights is not None:
@@ -653,61 +1004,37 @@ class PatientPlan:
            
             # ---- Physical dose ----
             if dose_arr is not None:
-                if self._dose_label is None: #if physical dose is passed as array
-                    row.update(compute_dvh_metrics(dose_vox, vol_cc, "Phys",
-                                                   metric_cfg, ab, geud_a,
-                                                   weights=weights,n_fractions = self.n_fractions))
-                    
-                    edges, cum = compute_cumulative_histogram(dose_vox,
-                                                              metric_cfg.dvh_bins,
-                                                              weights=weights)
-                    dvh_data[struct_name]["Phys"] = (edges, cum)
-                    # ---- Fixed RBE ----
-                    
-                    dose_fixed = rbe_fixed(dose_vox, rbe_cfg.fixed_rbe)
-                    lbl_fixed  = f"RBE{rbe_cfg.fixed_rbe}"
-                    row.update(compute_dvh_metrics(dose_fixed, vol_cc,  lbl_fixed ,
-                                                   metric_cfg, ab, geud_a,
-                                                   weights=weights,n_fractions = self.n_fractions))
-                    edges_f, cum_f = compute_cumulative_histogram(dose_fixed,
-                                                                   metric_cfg.dvh_bins,
-                                                                   weights=weights)
-                    dvh_data[struct_name][lbl_fixed] = (edges_f, cum_f)
-                    dose_ref      = dose_fixed
-                    highlet_label = "highLET_fixed_rbe"
-                else:
-                    lbl = self._dose_label   # already biologically weighted: no re-weighting
-                    row.update(compute_dvh_metrics(dose_vox, vol_cc, lbl, metric_cfg, ab, geud_a,
-                                                   weights=weights, n_fractions=self.n_fractions))
-                    edges, cum = compute_cumulative_histogram(dose_vox, metric_cfg.dvh_bins, weights=weights)
-                    dvh_data[struct_name][lbl] = (edges, cum)
-                    dose_ref      = dose_vox
-                    highlet_label = f"highLET_{lbl}"
-            
+                # ---- Physical dose ----
+                _metrics_and_dvh(PHYS_LABEL, dose_vox, eqd2_vox.get(PHYS_LABEL), weights, ab, geud_a)
+ 
+                # ---- Fixed RBE ----
+                dose_fixed = rbe_fixed(dose_vox, rbe_cfg.fixed_rbe)
+                _metrics_and_dvh(fixed_lbl, dose_fixed, eqd2_vox.get(fixed_lbl), weights, ab, geud_a)
+                dose_ref      = dose_fixed
+                highlet_label = "highLET_fixed_rbe"
+ 
+                # ---- Variable RBE, internal models (uniform fractionation) ----
+                if let_arr is not None and compute_internal_models:
+                    for model in internal_models:
+                        rbe_dose_vox = compute_rbe_dose(dose_vox, let_vox, self.n_fractions, ab, model)
+                        _metrics_and_dvh(model, rbe_dose_vox, None, weights, ab, geud_a)
+ 
+                # ---- Variable RBE, external (multi-session) arrays ----
+                for label, v in vrbe_vox.items():
+                    _metrics_and_dvh(label, v, eqd2_vox.get(label), weights, ab, geud_a)
+ 
                 if let_arr is not None:
-
-                    # ---- Variable RBE (per model): ONLY when the input is physical dose ----
-                    if self._dose_label is None:
-                        for model in rbe_cfg.models:
-                            rbe_dose_vox = compute_rbe_dose(dose_vox, let_vox, self.n_fractions, ab, model)
-                            row.update(compute_dvh_metrics(rbe_dose_vox, vol_cc, model,
-                                                           metric_cfg, ab, geud_a,
-                                                           weights=weights, n_fractions=self.n_fractions))
-                            e_m, c_m = compute_cumulative_histogram(rbe_dose_vox,
-                                                                     metric_cfg.dvh_bins,
-                                                                     weights=weights)
-                            dvh_data[struct_name][model] = (e_m, c_m)
-                
                     # ---- LET-thresholded DVH metrics (high-LET subvolume) ----
                     high_let_idx = let_vox >= metric_cfg.LET_thr
-                
+ 
                     if high_let_idx.sum() > 0:
                         w_high = weights[high_let_idx] if weights is not None else None
-                        row.update(compute_dvh_metrics(
-                            dose_vox[high_let_idx], vol_cc, highlet_label, metric_cfg, ab, geud_a,
-                            weights=w_high, n_fractions=self.n_fractions))
-                
-                    # ---- 2-D DLVH ----
+                        eq_ref = eqd2_vox.get(fixed_lbl)
+                        _metrics_and_dvh(highlet_label, dose_ref[high_let_idx],
+                                         eq_ref[high_let_idx] if eq_ref is not None else None,
+                                         w_high, ab, geud_a, store_dvh=False)
+ 
+                    # ---- 2-D DLVH (model-independent: fixed-RBE dose vs LET) ----
                     H_diff, H_cum, d_edges, l_edges_2d = compute_2d_histogram(
                         dose_ref, let_vox,
                         metric_cfg.dlvh_dose_bins,
@@ -715,10 +1042,8 @@ class PatientPlan:
                         weights=weights)
                     dlvh_data_diff[struct_name] = (H_diff, d_edges, l_edges_2d)
                     dlvh_data_cum[struct_name]  = (H_cum, d_edges, l_edges_2d)
-                                    
-                    
-            
-            if let_arr is not None:       
+ 
+            if let_arr is not None:
                 # ---- LET metrics & LVH ----
                 row.update(compute_let_metrics(let_vox, dose_vox, metric_cfg.lx,
                                                weights=weights))
@@ -726,12 +1051,12 @@ class PatientPlan:
                                                                metric_cfg.lvh_bins,
                                                                weights=weights)
                 lvh_data[struct_name] = (l_edges, l_cum)
-                
+ 
             all_rows.append(row)
-            
-
+ 
+ 
         metrics_df = pd.DataFrame(all_rows)
-        
+ 
         return AnalysisResults(
             patient_id  = self.patient_id,
             metrics_df  = metrics_df,

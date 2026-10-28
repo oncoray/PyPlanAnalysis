@@ -234,8 +234,9 @@ def compute_dvh_metrics(dose_voxels: np.ndarray,
                         alpha_beta: float = 3.0,
                         geud_a: float = 1.0,
                         weights: np.ndarray = None,
-                        n_fractions: int = 30,
-                        min_voxel_fract: float = 0.05) -> dict:
+                        n_fractions: int = None,
+                        min_voxel_fract: float = 0.05,
+                        eqd2_dose: np.ndarray = None) -> dict:
     """
     Compute all requested DVH metrics for a 1-D voxel dose array.
 
@@ -250,6 +251,14 @@ def compute_dvh_metrics(dose_voxels: np.ndarray,
     weights      : optional 1-D array of fractional volumes [0,1] per voxel.
                    If None, binary mask assumed (all weights = 1).
                    When provided, all metrics are volume-weighted.
+    n_fractions  : number of fractions, used ONLY to convert `dose_voxels` to EQD2
+                   under a uniform-fractionation assumption when `eqd2_dose` is
+                   not given. No default: a silent 30-fraction assumption is
+                   not safe for multi-session / adapted plans.
+    eqd2_dose    : optional 1-D array (same voxels as `dose_voxels`) with the
+                   TOTAL EQD2 computed outside (accumulated session by session).
+                   If given, it is used as is and `n_fractions` / `alpha_beta`
+                   are ignored for the EQD2 metrics.
 
     Returns
     -------
@@ -316,12 +325,27 @@ def compute_dvh_metrics(dose_voxels: np.ndarray,
         m[f"{label}_gEUD"] = geud
 
     # EQD2 — weighted mean and max
+    #   Priority: imported total EQD2 > uniform-fractionation conversion > NaN.
     if metric_cfg.compute_eqd2:
-        dose_per_fx = dose_voxels / n_fractions
-        eqd2 = dose_voxels * (dose_per_fx + alpha_beta) / (2.0 + alpha_beta)
-        m[f"{label}_EQD2_D40%"]  = _dx_percent_weighted(eqd2, w, 40)
-        m[f"{label}_EQD2_mean"] = float(np.average(eqd2, weights=w))
-        m[f"{label}_EQD2_max"]  = float(eqd2[w > 0].max()) if (w > 0).any() else 0.0
+        if eqd2_dose is not None:
+            eqd2 = np.asarray(eqd2_dose)
+            if eqd2.shape != dose_voxels.shape:
+                raise ValueError(f"eqd2_dose shape {eqd2.shape} != dose_voxels shape "
+                                 f"{dose_voxels.shape} (label '{label}').")
+        elif n_fractions is not None:
+            dose_per_fx = dose_voxels / n_fractions
+            eqd2 = dose_voxels * (dose_per_fx + alpha_beta) / (2.0 + alpha_beta)
+        else:
+            eqd2 = None   # neither imported EQD2 nor fractionation available
+
+        if eqd2 is None:
+            m[f"{label}_EQD2_D40%"] = np.nan
+            m[f"{label}_EQD2_mean"] = np.nan
+            m[f"{label}_EQD2_max"]  = np.nan
+        else:
+            m[f"{label}_EQD2_D40%"]  = _dx_percent_weighted(eqd2, w, 40)
+            m[f"{label}_EQD2_mean"] = float(np.average(eqd2, weights=w))
+            m[f"{label}_EQD2_max"]  = float(eqd2[w > 0].max()) if (w > 0).any() else 0.0
 
     return m
 
