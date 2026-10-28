@@ -44,6 +44,11 @@ _VRBE_RATIO_TAILS       = (0.80, 3.00)  # 0.1 % and 99.9 % percentiles of vRBE /
 _EQD2_RATIO_MEDIAN      = (0.40, 3.00)  # median EQD2 / dose of the same label
 _MAX_RATIO_SAMPLES      = 2_000_000     # subsample very large grids for the percentile checks
  
+LABELS = {"mcnamara": "MCN",
+          "wedenberg": "WED",
+          "carabe": "CAR",
+          "linear": "LIN" 
+          }
  
 @dataclass
 class _GridData:
@@ -158,6 +163,8 @@ class PatientPlan:
         self._imported_eqd2       : dict = {}     # {label: total EQD2}
         self._ref_img        = None          # cached SimpleITK template of the reference grid
         
+        # Sparse ROI-mask cache: flat voxel indices plus optional fractional weights.
+        self._roi_mask_cache = {}
     # ----------------------------------------------------------
     @classmethod
     def from_array(cls,
@@ -641,27 +648,55 @@ class PatientPlan:
                          origin=grid_origin, spacing=grid_spacing,
                          shape=grid_shape, z_positions=grid_z_positions)
     
-    
-    def get_roi_mask(self,struct_name, rtstruct_ds, grid_origin, grid_spacing,
-                 grid_shape, grid_z_positions, use_fractional=False,
-                 supersample=4, max_supersample=12):
-        
-        if use_fractional:
-             frac = get_fractional_mask_on_grid(
-                                                struct_name, rtstruct_ds,
-                                                grid_origin, grid_spacing,
-                                                grid_shape, grid_z_positions,
-                                                supersample=supersample,
-                                                max_supersample=max_supersample
-                                            )
-             mask = frac > 0
-             return frac[mask], mask
-            
-        return None, get_structure_mask_on_grid(
-            struct_name, rtstruct_ds,
-            grid_origin, grid_spacing,
-            grid_shape, grid_z_positions
+    def _roi_mask_cache_key(self, struct_name, rtstruct_ds, grid_origin, grid_spacing,
+                            grid_shape, grid_z_positions, use_fractional,
+                            supersample, max_supersample):
+        return (
+            id(rtstruct_ds), struct_name.strip().lower(),
+            tuple(float(v) for v in grid_origin),
+            tuple(float(v) for v in grid_spacing), tuple(int(v) for v in grid_shape),
+            hash(np.asarray(grid_z_positions, dtype=np.float64).tobytes()),
+            bool(use_fractional), int(supersample), int(max_supersample),
         )
+
+    def _get_roi_mask_indices(self, struct_name, rtstruct_ds, grid_origin, grid_spacing,
+                              grid_shape, grid_z_positions, use_fractional=False,
+                              supersample=4, max_supersample=12):
+        """Return cached sparse flat indices and optional fractional weights."""
+        key = self._roi_mask_cache_key(
+            struct_name, rtstruct_ds, grid_origin, grid_spacing, grid_shape,
+            grid_z_positions, use_fractional, supersample, max_supersample)
+        cached = self._roi_mask_cache.get(key)
+        if cached is None:
+            if use_fractional:
+                frac = get_fractional_mask_on_grid(
+                    struct_name, rtstruct_ds, grid_origin, grid_spacing,
+                    grid_shape, grid_z_positions, supersample=supersample,
+                    max_supersample=max_supersample)
+                indices = np.flatnonzero(frac)
+                weights = np.asarray(frac.ravel()[indices], dtype=np.float32)
+            else:
+                mask = get_structure_mask_on_grid(
+                    struct_name, rtstruct_ds, grid_origin, grid_spacing,
+                    grid_shape, grid_z_positions)
+                indices = np.flatnonzero(mask)
+                weights = None
+            indices = indices.astype(np.intp, copy=False)
+            self._roi_mask_cache[key] = (indices, weights)
+        else:
+            indices, weights = cached
+        return indices, weights
+    
+    def get_roi_mask(self, struct_name, rtstruct_ds, grid_origin, grid_spacing,
+                     grid_shape, grid_z_positions, use_fractional=False,
+                     supersample=4, max_supersample=12):
+        indices, weights = self._get_roi_mask_indices(
+            struct_name, rtstruct_ds, grid_origin, grid_spacing, grid_shape,
+            grid_z_positions, use_fractional, supersample, max_supersample)
+        mask = np.zeros(int(np.prod(grid_shape)), dtype=bool)
+        mask[indices] = True
+        mask = mask.reshape(grid_shape)
+        return (weights, mask) if use_fractional else (None, mask)
     
     
     def _get_priority(self, struct_name: str, priority_map: dict) -> int:
@@ -674,30 +709,43 @@ class PatientPlan:
         
     def build_alpha_beta_map(self, rtstruct_ds, structures, grid_origin, grid_spacing,
                          grid_shape, grid_z_positions, radiobio_cfg,
-                         use_fractional,supersample,  max_supersample):
-        
+                         use_fractional, supersample, max_supersample):
         ab_map = np.full(grid_shape, radiobio_cfg.alpha_beta_default, dtype=np.float32)
         priority_map = np.full(grid_shape, 1000, dtype=np.int32)
-    
+
+        # Preserve the original overlap semantics: EVERY structure claims its
+        # priority region, including structures whose alpha/beta equals the
+        # default. This is important because a higher-priority default-alpha/beta
+        # ROI must prevent a lower-priority non-default ROI from overwriting it.
+        # Unconfigured structures still participate with priority 999.
+        
+        selected = []
         for struct_name in structures:
+            priority = self._get_priority(struct_name, radiobio_cfg.structure_priority)
             try:
-                _,mask = self.get_roi_mask(struct_name, rtstruct_ds, grid_origin, grid_spacing,
-                             grid_shape, grid_z_positions, use_fractional,
-                             supersample, max_supersample
-                             )
+                ab = radiobio_cfg.get_alpha_beta(struct_name)
             except Exception:
                 continue
-    
-            if not mask.any():
+            selected.append((struct_name, priority, ab))
+
+        # Keep rasterisation serial (no paralle lprocessing). Sparse indices avoid dense
+        # mask operations and reuse cached rasterisation across calls.
+        flat_ab = ab_map.ravel()
+        flat_priority = priority_map.ravel()
+        for struct_name, priority, ab in selected:
+            try:
+                indices, _ = self._get_roi_mask_indices(
+                    struct_name, rtstruct_ds, grid_origin, grid_spacing,
+                    grid_shape, grid_z_positions, use_fractional,
+                    supersample, max_supersample)
+            except Exception:
                 continue
-    
-            priority = self._get_priority(
-                struct_name, radiobio_cfg.structure_priority
-            )
-            update = mask & (priority < priority_map)
-    
-            ab_map[update] = radiobio_cfg.get_alpha_beta(struct_name)
-            priority_map[update] = priority
+            if indices.size == 0:
+                continue
+            update = indices[flat_priority[indices] > priority]
+            if update.size:
+                flat_ab[update] = ab
+                flat_priority[update] = priority
 
         return ab_map, priority_map
     
@@ -705,17 +753,18 @@ class PatientPlan:
                            use_fractional=False, supersample=4, max_supersample=12):
         radiobio_cfg = radiobio_cfg or RadiobiologyConfig()
         self.load()
-        structures = self.structure_names if structures is None else \
-                     [s for s in structures if s in self.structure_names]
-    
+        available = self.structure_names
+        structures = available if structures is None else [s for s in structures if s in available]
+        
         grid = self._sanity_check_and_resample_dose(structures, MetricConfig(), False, False)
         if grid is None:
             raise ValueError("Could not determine the voxel grid.")
-    
+        
         ab_map, _ = self.build_alpha_beta_map(
             self._rtstruct_ds, structures,
-            grid.origin, grid.spacing, grid.shape, grid.z_positions,    
+            grid.origin, grid.spacing, grid.shape, grid.z_positions,
             radiobio_cfg, use_fractional, supersample, max_supersample)
+       
         return ab_map.astype(np.float64)
 
     def compute_vRBE(self,
@@ -1017,11 +1066,11 @@ class PatientPlan:
                 if let_arr is not None and compute_internal_models:
                     for model in internal_models:
                         rbe_dose_vox = compute_rbe_dose(dose_vox, let_vox, self.n_fractions, ab, model)
-                        _metrics_and_dvh(model, rbe_dose_vox, None, weights, ab, geud_a)
+                        _metrics_and_dvh(LABELS[model], rbe_dose_vox, None, weights, ab, geud_a)
  
                 # ---- Variable RBE, external (multi-session) arrays ----
-                for label, v in vrbe_vox.items():
-                    _metrics_and_dvh(label, v, eqd2_vox.get(label), weights, ab, geud_a)
+                for model, v in vrbe_vox.items():
+                    _metrics_and_dvh(LABELS[model], v, eqd2_vox.get(model), weights, ab, geud_a)
  
                 if let_arr is not None:
                     # ---- LET-thresholded DVH metrics (high-LET subvolume) ----
@@ -1114,11 +1163,13 @@ class AnalysisResults:
                                         roi_name = roi_override,
                                         ctv_name = NTCPConfig.ctv_name)
             NTCP_dict = {}
-            
+            NTCP_dict["ROI"] = ""
             for RBE in list_RBE_calculated:
                 NTCP_RBE, roi_used  = NTCP_base.compute_NTCP(RBE, self.metrics_df)
                 NTCP_dict[RBE] = NTCP_RBE
+            
             NTCP_dict["ROI"] = roi_used
+            
             NTCP_results[NTCP_model] = NTCP_dict
         return NTCP_results       
  

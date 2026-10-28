@@ -249,9 +249,10 @@ class NTCPModelBase():
             The chosen ``ROI_Name`` value, or None if no ROI matches.
         """
         rois = {}
+        reference_dose = 'RBE1.1'
         for s in dfi_dvh["ROI_Name"]:
             if (self.OAR_name.lower() in s.lower()) or (s.lower() in self.OAR_name.lower()):
-                val = dfi_dvh[vRBE_model + '_' + parameterName][dfi_dvh["ROI_Name"] == s]
+                val = dfi_dvh[reference_dose + '_' + parameterName][dfi_dvh["ROI_Name"] == s]
                 rois[s] = val.values[0]
     
         # If only one (or zero) matching ROI, no side selection needed
@@ -266,11 +267,11 @@ class NTCPModelBase():
         # --- Prefer dose-value heuristic ---
         if self.side == "ipsi" :
             
-            print(f"{max(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {vRBE_model}")
+            #print(f"{max(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {reference_dose}")
             return max(rois, key=lambda k: rois[k])
         else:
             
-            print(f"{min(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {vRBE_model}")
+            #print(f"{min(rois, key=lambda k: rois[k])} chosen as {self.side} ROI for {self.model_name} based on mean dose for {reference_dose}")
             return min(rois, key=lambda k: rois[k])
         
         # --- Fallback - never applied for now: geometry-based (COM-distance-to-CTV) selection ---
