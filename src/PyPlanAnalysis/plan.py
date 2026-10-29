@@ -1055,12 +1055,13 @@ class PatientPlan:
             if dose_arr is not None:
                 # ---- Physical dose ----
                 _metrics_and_dvh(PHYS_LABEL, dose_vox, eqd2_vox.get(PHYS_LABEL), weights, ab, geud_a)
- 
-                # ---- Fixed RBE ----
-                dose_fixed = rbe_fixed(dose_vox, rbe_cfg.fixed_rbe)
-                _metrics_and_dvh(fixed_lbl, dose_fixed, eqd2_vox.get(fixed_lbl), weights, ab, geud_a)
-                dose_ref      = dose_fixed
-                highlet_label = "highLET_fixed_rbe"
+                
+                if rbe_cfg.fixed_rbe:
+                    # ---- Fixed RBE ----
+                    dose_fixed = rbe_fixed(dose_vox, rbe_cfg.fixed_rbe)
+                    _metrics_and_dvh(fixed_lbl, dose_fixed, eqd2_vox.get(fixed_lbl), weights, ab, geud_a)
+                    dose_ref      = dose_fixed
+                    highlet_label = "highLET_fixed_rbe"
  
                 # ---- Variable RBE, internal models (uniform fractionation) ----
                 if let_arr is not None and compute_internal_models:

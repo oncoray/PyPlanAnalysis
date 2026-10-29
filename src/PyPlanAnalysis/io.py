@@ -14,6 +14,7 @@ from typing import Union
 from matplotlib.path import Path as MplPath
 
 import pydicom
+from pydicom.uid import ExplicitVRLittleEndian
 from scipy.interpolate import splprep, splev
 from scipy.ndimage import distance_transform_edt
 from collections import defaultdict
@@ -741,10 +742,23 @@ def load_dose_grid(path: Union[str, Path]) -> tuple:
     array : np.ndarray  shape (z, y, x)
     ds    : pydicom Dataset
     """
-    ds    = pydicom.dcmread(str(path), force=True)
+    ds = pydicom.dcmread(str(path), force=True)
+    # Correct missing Transfer Syntax UID if necessary
+    if not hasattr(ds, "file_meta") or ds.file_meta is None:
+        ds.file_meta = pydicom.dataset.FileMetaDataset()
+
+    if "TransferSyntaxUID" not in ds.file_meta:
+        warnings.warn(
+            f"Missing TransferSyntaxUID in '{path}'. "
+            "Assuming Explicit VR Little Endian."
+        )
+        ds.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+
     scale = float(ds.DoseGridScaling)
-    if not ds.DoseUnits == "GY":
+
+    if ds.DoseUnits != "GY":
         warnings.warn(f"Dose Units are not correct for: '{path}'.")
+
     array = ds.pixel_array.astype(np.float64) * scale
     return array, ds
 

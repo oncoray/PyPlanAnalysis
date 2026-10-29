@@ -249,7 +249,7 @@ class NTCPModelBase():
             The chosen ``ROI_Name`` value, or None if no ROI matches.
         """
         rois = {}
-        reference_dose = 'RBE1.1'
+        reference_dose = 'Phys'
         for s in dfi_dvh["ROI_Name"]:
             if (self.OAR_name.lower() in s.lower()) or (s.lower() in self.OAR_name.lower()):
                 val = dfi_dvh[reference_dose + '_' + parameterName][dfi_dvh["ROI_Name"] == s]
