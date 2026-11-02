@@ -122,9 +122,15 @@ class PatientPlan:
                  let_file       : Union[str, Path, None] = None,
                  rtstruct       : Union[str, Path, None] = None,
                  CT_folder_path : Union[str, Path, None] = None,
-                 n_fractions    : int  | None = None):
+                 n_fractions    : int  | None = None,
+                 dose_is_rbe    : bool | None = None):
         
-        
+        """
+        dose_is_rbe : True  -> dose_file is an RBE(1.1)-weighted dose, divided by 1.1
+                              to obtain the physical dose before any variable-RBE model;
+                     False -> dose_file is physical, never scaled;
+                     None  -> auto: scaled only if DICOM DoseType == "EFFECTIVE".
+        """
         self.plan_file   = Path(plan_file)      if plan_file      else None
         self.dose_file   = Path(dose_file)      if dose_file      else None
         self.let_file    = Path(let_file)       if let_file       else None
@@ -146,7 +152,8 @@ class PatientPlan:
         else:
             print("can´t resolve patient name, setting it to UNKNOWN")
             self.patient_id = "UNKNOWN"
-        
+            
+        self.dose_is_rbe = dose_is_rbe
         self._plan_ds       = None
         self._dose_arr     = None
         self._dose_ds       = None
@@ -448,6 +455,7 @@ class PatientPlan:
         if self.plan_file is not None:
             self._plan_ds  = pydicom.dcmread(str(self.plan_file), force=True)
             n_fractions_from_rtplan = self._plan_ds.FractionGroupSequence[0].NumberOfFractionsPlanned
+            
             print(f"Selected plan: {self._plan_ds.RTPlanName}")
             try: 
                 radtype= self._plan_ds.RadiationType
@@ -458,25 +466,35 @@ class PatientPlan:
             if self.n_fractions is not None:
                 if n_fractions_from_rtplan != self.n_fractions:
                     print(f'⚠ Number of fractions specified does not match RTPLAN, overwriting with RTPLAN value: {n_fractions_from_rtplan} fractions')
+                    if n_fractions_from_rtplan == 1:
+                        print('⚠ Single fraction specified in RTPLAN, CHECK! Aborting loading...')
+                        return
                     self.n_fractions = n_fractions_from_rtplan
             else:
-                self.n_fractions = n_fractions_from_rtplan
+                if n_fractions_from_rtplan == 1:
+                    print('⚠ Single fraction specified in RTPLAN, CHECK! Aborting loading...')
+                    return
+                else:
+                    self.n_fractions = n_fractions_from_rtplan
                 
         if (self.plan_file is None and self.n_fractions is None
                 and not (self._imported_vrbe or self._imported_eqd2)):
             raise AttributeError(
                 "No fraction number is given, please define it or select RTPLAN"
             )
-                
         if self.dose_file is not None:
-            #if available dose is effective,  scale down by 10%
-            
             self._dose_arr, self._dose_ds = load_dose_grid(self.dose_file)
-            dose_type = getattr(self._dose_ds, "DoseType", "").upper()
-            
-            if dose_type == "EFFECTIVE":
-                self._is_scaling_performed_from_RBEw_dose  = True
-                self._dose_arr = self._dose_arr/1.1  
+
+            if self.dose_is_rbe is None:        # auto: trust the DICOM tag
+                is_rbe = str(getattr(self._dose_ds, "DoseType", "")).upper() == "EFFECTIVE"
+            else:                               # explicit user choice
+                is_rbe = bool(self.dose_is_rbe)
+
+            if is_rbe:
+                self._is_scaling_performed_from_RBEw_dose = True
+                self._dose_arr = self._dose_arr / 1.1
+                print("  Dose file treated as RBE1.1-weighted: divided by 1.1 to physical dose.")        
+        
             
         if self.let_file is not None:
             self._let_arr, self._let_ds = load_dose_grid(self.let_file)
