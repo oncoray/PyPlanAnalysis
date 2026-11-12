@@ -15,7 +15,36 @@ Carabe     : Carabe et al., Br J Radiol 85(1011):304-14, 2012
 
 import numpy as np
 from dataclasses import dataclass, field
+import re
 
+# ============================================================
+# HELPERS FOR LINEAR MODEL
+# ============================================================
+
+_LINEAR_NUMERIC      = re.compile(r"^linear_(\d*\.?\d+)$")
+_DEFAULT_SLOPE       = 0.1
+
+def canonical_model_name(model: str) -> str:
+    """Lower-case; normalise numeric slopes so 'linear_0.050' and 'linear_0.05' share one label."""
+    name = model.lower().strip()
+    m = _LINEAR_NUMERIC.match(name)
+    return f"linear_{float(m.group(1)):g}" if m else name
+
+def linear_slope(model: str):
+    """Slope encoded in a linear model name, or None if `model` is not a linear model.
+    "linear" -> 0.1 | "linear_<number>" (e.g. "linear_0.07")."""
+    name = model.lower().strip()
+    if name == "linear":
+        return _DEFAULT_SLOPE
+    if not name.startswith("linear_"):
+        return None
+    m = _LINEAR_NUMERIC.match(name)
+    if m:
+        return float(m.group(1))
+    raise ValueError(f"Unknown linear RBE model '{model}'. Use 'linear_<slope>' such as 'linear_0.07'.")
+    
+def is_linear_model(model: str) -> bool:
+    return linear_slope(model) is not None
 
 # ============================================================
 #  Configuration dataclass
@@ -38,15 +67,28 @@ class RBEConfig:
     models    : list = field(default_factory=lambda: ["mcnamara",
                                                        "wedenberg",
                                                        "carabe",
-                                                       "linear"])
+                                                       "linear_0.1",
+                                                       "linear_0.05"])
     fixed_rbe : float = 1.1
+    
+    slope_linear : list  =  field(default_factory=lambda: [0.1,0.05])
 
     def __post_init__(self):
-        valid = set(VARIABLE_RBE_MODELS.keys())
-        bad   = set(self.models) - valid
+        # normalise names and drop duplicates, keeping order
+        self.models = list(dict.fromkeys(canonical_model_name(m) for m in self.models))
+        bad = []
+        for m in self.models:
+            try:
+                ok = m in VARIABLE_RBE_MODELS or linear_slope(m) is not None
+            except ValueError:
+                ok = False
+            if not ok:
+                bad.append(m)
         if bad:
-            raise ValueError(f"Unknown RBE model(s): {bad}. "
-                             f"Valid options: {valid}")
+            raise ValueError(
+                f"Unknown RBE model(s): {bad}. Valid: "
+                f"{[k for k in VARIABLE_RBE_MODELS if k != 'linear']}, "
+                f"or 'linear_<slope>' (e.g. 'linear_0.07').")
 
 
 # ============================================================
@@ -67,6 +109,9 @@ def _safe_dose(dose: np.ndarray) -> np.ndarray:
     d = dose.copy()
     d[d <= 0] = 1e-9
     return d
+
+
+
 
 def rbe_linear(dose_phys: np.ndarray,
                  let_d: np.ndarray,
@@ -196,12 +241,15 @@ def compute_rbe_dose(dose_phys: np.ndarray,
     if np.ndim(alpha_beta) > 0 and np.shape(alpha_beta) != np.shape(dose_phys):
         raise ValueError("alpha_beta array must match dose shape")
     
-    if model.lower() not in VARIABLE_RBE_MODELS:
-        raise ValueError(f"Unknown model '{model}'. "
-                         f"Choose from {list(VARIABLE_RBE_MODELS)}")
+    name  = canonical_model_name(model)
+    slope = linear_slope(name)
+    if slope is not None:
+        return rbe_linear(dose_phys, let_d, n_fractions, alpha_beta, coeff=slope)
     
-    
-    return VARIABLE_RBE_MODELS[model.lower()](dose_phys, let_d, n_fractions, alpha_beta)
+    if name not in VARIABLE_RBE_MODELS:
+        raise ValueError(f"Unknown model '{model}'. Choose from {list(VARIABLE_RBE_MODELS)} "
+                         "or a linear model ('linear_<preset>' / 'linear_<slope>').")
+    return VARIABLE_RBE_MODELS[name](dose_phys, let_d, n_fractions, alpha_beta)
 
 
 

@@ -16,7 +16,7 @@ from typing import Union
 import matplotlib.pyplot as plt
 from .io       import (load_ct_series,load_dose_grid, get_grid_geometry, get_fractional_mask_on_grid,get_structure_mask_on_grid,
                         get_all_structure_names, find_dicom_files,resample_dose_on_ct,_np_to_sitk,resample_dose_to_new_grid,get_roi_center_of_mass)
-from .rbe      import RBEConfig, rbe_fixed, compute_rbe_dose
+from .rbe      import RBEConfig, rbe_fixed, compute_rbe_dose,is_linear_model
 from .metrics  import (RadiobiologyConfig, MetricConfig,
                         compute_dvh_metrics, compute_let_metrics,
                         compute_cumulative_histogram, compute_2d_histogram)
@@ -835,7 +835,7 @@ class PatientPlan:
             warnings.warn("This plan carries externally computed vRBE doses (multi-session). "
                           "compute_vRBE applies the model to the SUMMED physical dose assuming "
                           "uniform fractionation, which is not valid for heterogeneous sessions.")
-        if model.lower() != "linear" and self._let_arr is None:
+        if self._let_arr is None:
             raise ValueError(f"RBE model '{model}' needs a LET map.")
  
         metric_cfg   = metric_cfg   or MetricConfig()
@@ -860,10 +860,12 @@ class PatientPlan:
                                                     resample_on_CT, resample_on_custom_grid)
         if grid is None:
             raise RuntimeError("compute_vRBE aborted: no usable dose grid (see warnings).")
- 
-        ab_map,_ = self.build_alpha_beta_map(self._rtstruct_ds, structures, grid.origin, grid.spacing,
-                                             grid.shape, grid.z_positions, radiobio_cfg,
-                                             use_fractional, supersample, max_supersample)
+        if is_linear_model(model):
+            ab_map = None
+        else:
+            ab_map,_ = self.build_alpha_beta_map(self._rtstruct_ds, structures, grid.origin, grid.spacing,
+                                                 grid.shape, grid.z_positions, radiobio_cfg,
+                                                 use_fractional, supersample, max_supersample)
  
         vRBE = compute_rbe_dose(grid.dose, grid.let, self.n_fractions, ab_map, model)
  
@@ -940,7 +942,7 @@ class PatientPlan:
                 warnings.warn(f"Structures not in RT Struct: {missing}")
             structures = [s for s in structures if s in available]
 
-        mode = f"fractional (supersample={supersample})" if use_fractional else "binary"
+        mode = f"fractional (basline adaptive supersample={supersample})" if use_fractional else "binary"
         print(f"Analysing {len(structures)} structures [{mode} mask]...")
         
         #--------------------
@@ -974,7 +976,11 @@ class PatientPlan:
         if grid.vrbe and compute_internal_models and internal_models:
             warnings.warn(f"Internal models {internal_models} are applied to the summed physical "
                           "dose assuming uniform fractionation; import vrbe_arrays for multi-session or adapted plans.")
- 
+            
+        for model in internal_models:
+            if model.startswith("linear_"):
+                LABELS[model] = model.replace("linear_", "LIN_") #adapt to include LIN_0.1, LIN_0.05 etc
+                
         valid_eqd2 = {PHYS_LABEL, fixed_lbl, *grid.vrbe}
         unused     = sorted(set(grid.eqd2) - valid_eqd2)
         if unused:
@@ -1089,6 +1095,10 @@ class PatientPlan:
  
                 # ---- Variable RBE, external (multi-session) arrays ----
                 for model, v in vrbe_vox.items():
+                    if model.startswith("linear_"):
+                        l = model.replace("linear_", "LIN_")
+                        if l not in LABELS.keys():
+                            LABELS[model] = l
                     _metrics_and_dvh(LABELS[model], v, eqd2_vox.get(model), weights, ab, geud_a)
  
                 if let_arr is not None:
@@ -1407,7 +1417,7 @@ class vRBEResults:
         self.dose_arr   = dose_arr 
         self.let_arr    = let_arr 
         self.vRBE       = vRBE 
-        self.ab_map     = ab_map if not model.lower() == "linear" else None
+        self.ab_map     = None if is_linear_model(model) else ab_map
         self.geom       = geom
     # ----------------------------------------------------------
     # Export methods
